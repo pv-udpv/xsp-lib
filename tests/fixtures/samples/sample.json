@@ -1,0 +1,6 @@
+{
+  "service": "xsp-lib",
+  "version": "0.1.0",
+  "protocols": ["VAST", "OpenRTB", "DAAST", "CATS"],
+  "message": "Universal AdTech Service Protocol Library"
+}
