@@ -83,17 +83,19 @@ When working with repository:
 - Priority: Implement BEFORE 3.0
 - Reason: Backward compatibility critical
 
-### 3. OpenRTB 3.0 + AdCOM (Issue pv-udpv/xsp-lib#4) - MEDIUM
+### 3. DAAST (Issue pv-udpv/xsp-lib#4) - DEPRECATED ⚠️
+- Status: Merged into VAST 4.1+ as adType="audio"
+- Action: Do NOT implement separate DAAST upstream
+- Migration: Use VastUpstream with adType="audio" instead
+- Reference: IAB DAAST deprecation notice
+- Note: Issue #4 exists for historical tracking but should close as "won't fix"
+
+### 4. OpenRTB 3.0 + AdCOM - MEDIUM (Future)
 - Market adoption: <10% (growing slowly)
 - Status: Future-proofing
 - Implementation: After 2.6, using shared AdCOM layer
 - Strategy: Provide migration helpers from 2.6
-
-### 4. DAAST - DEPRECATED ⚠️
-- Status: Merged into VAST 4.1+
-- Action: Do NOT implement separate DAAST upstream
-- Migration: Use VastUpstream with adType="audio"
-- Reference: IAB DAAST deprecation notice
+- Note: Will be tracked in a future issue
 
 ---
 
