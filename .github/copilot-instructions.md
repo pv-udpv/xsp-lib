@@ -71,20 +71,20 @@ When working with repository:
 
 ## Implementation Order
 
-### 1. VAST 4.2 (Issue pv-udpv/xsp-lib#2) - PRIMARY
+### 1. VAST 4.2 (#2) - PRIMARY
 - Market adoption: ~95% video ad serving
 - Status: Current industry standard
 - Note: Replaces legacy DAAST for audio use cases (adType="audio")
 - Key features: SIMID, advanced macros, verification
 
-### 2. OpenRTB 2.6 (Issue pv-udpv/xsp-lib#3) - HIGH
+### 2. OpenRTB 2.6 (#3) - HIGH
 - Market adoption: ~90% programmatic RTB
 - Status: De facto standard
 - Priority: Implement BEFORE 3.0
 - Reason: Backward compatibility critical
 
-### 3. DAAST (Issue pv-udpv/xsp-lib#4) - DEPRECATED ⚠️
-- Status: Merged into VAST 4.1+ as adType="audio"
+### 3. DAAST (#4) - DEPRECATED ⚠️
+- Status: Merged into VAST 4.2+ as adType="audio"
 - Action: Do NOT implement separate DAAST upstream
 - Migration: Use VastUpstream with adType="audio" instead
 - Reference: IAB DAAST deprecation notice
