@@ -1,6 +1,7 @@
 """Middleware base protocol and stack."""
 
-from typing import Any, Awaitable, Callable, Protocol
+from collections.abc import Awaitable, Callable
+from typing import Any, Protocol
 
 from xsp.core.upstream import Upstream
 
@@ -52,8 +53,7 @@ class MiddlewareWrappedUpstream:
             middleware = self._middleware[index]
 
             async def next_handler(**inner_kwargs: Any) -> Any:
-                # Update kwargs and continue chain
-                merged_kwargs = {**kwargs, **inner_kwargs}
+                # Continue chain
                 return await create_handler(index + 1)
 
             return await middleware(self._upstream, next_handler, **kwargs)

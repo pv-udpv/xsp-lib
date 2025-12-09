@@ -13,7 +13,7 @@ class TransportError(XspError):
     """Transport layer error."""
 
 
-class UpstreamTimeout(UpstreamError):
+class UpstreamTimeout(UpstreamError):  # noqa: N818
     """Upstream request timed out."""
 
 

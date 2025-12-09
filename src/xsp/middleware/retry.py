@@ -1,9 +1,9 @@
 """Retry middleware with exponential backoff."""
 
 import asyncio
-from typing import Any, Type
+from typing import Any
 
-from xsp.core.exceptions import UpstreamError
+from xsp.core.exceptions import TransportError, UpstreamError
 from xsp.core.upstream import Upstream
 from xsp.middleware.base import FetchFunc
 
@@ -15,7 +15,10 @@ class RetryMiddleware:
         self,
         max_attempts: int = 3,
         backoff_base: float = 2.0,
-        retriable_exceptions: tuple[Type[Exception], ...] = (UpstreamError,),
+        retriable_exceptions: tuple[type[Exception], ...] = (
+            UpstreamError,
+            TransportError,
+        ),
     ):
         """
         Initialize retry middleware.

@@ -10,7 +10,7 @@ __all__ = [
 
 # HTTP transport is optional
 try:
-    from xsp.transports.http import HttpTransport
+    from xsp.transports.http import HttpTransport  # noqa: F401
 
     __all__.append("HttpTransport")
 except ImportError:

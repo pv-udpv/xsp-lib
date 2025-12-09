@@ -1,7 +1,8 @@
 """Base upstream implementation."""
 
 import asyncio
-from typing import Any, Callable, Generic, TypeVar
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar
 
 from xsp.core.exceptions import DecodeError, TransportError, UpstreamTimeout
 from xsp.core.transport import Transport
@@ -112,7 +113,7 @@ class BaseUpstream(Generic[T]):
                 ),
                 timeout=effective_timeout,
             )
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise UpstreamTimeout(
                 f"Request timed out after {effective_timeout}s"
             ) from e

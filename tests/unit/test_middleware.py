@@ -3,7 +3,7 @@
 import pytest
 
 from xsp.core.base import BaseUpstream
-from xsp.core.exceptions import UpstreamError
+from xsp.core.exceptions import TransportError, UpstreamError
 from xsp.middleware.base import MiddlewareStack
 from xsp.middleware.retry import RetryMiddleware
 from xsp.transports.memory import MemoryTransport
@@ -60,7 +60,7 @@ async def test_retry_middleware_exhausted():
     middleware = MiddlewareStack(RetryMiddleware(max_attempts=3, backoff_base=0.1))
     wrapped = middleware.wrap(upstream)
 
-    with pytest.raises(UpstreamError):
+    with pytest.raises(TransportError):
         await wrapped.fetch()
 
     assert transport.attempts == 3

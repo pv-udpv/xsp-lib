@@ -3,7 +3,7 @@
 import pytest
 
 from xsp.core.base import BaseUpstream
-from xsp.core.exceptions import DecodeError, UpstreamTimeout
+from xsp.core.exceptions import DecodeError
 from xsp.transports.memory import MemoryTransport
 
 

@@ -5,9 +5,9 @@ __version__ = "0.1.0"
 from xsp.core.base import BaseUpstream
 from xsp.core.exceptions import (
     DecodeError,
+    TransportError,
     UpstreamError,
     UpstreamTimeout,
-    TransportError,
     ValidationError,
     XspError,
 )
