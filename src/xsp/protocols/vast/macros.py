@@ -55,13 +55,15 @@ class MacroSubstitutor:
             pattern = f"[{macro}]"
             if pattern in result:
                 value = provider()
-                result = result.replace(pattern, quote(value, safe=""))
+                # Use safe chars appropriate for query params
+                result = result.replace(pattern, quote(value, safe="-_.~"))
 
         # Context macros
         if context:
             for key, value in context.items():
                 pattern = f"[{key.upper()}]"
                 if pattern in result:
-                    result = result.replace(pattern, quote(str(value), safe=""))
+                    # Use safe chars appropriate for query params
+                    result = result.replace(pattern, quote(str(value), safe="-_.~"))
 
         return result

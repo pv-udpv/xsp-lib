@@ -113,8 +113,11 @@ class VastUpstream(BaseUpstream[str]):
         Returns:
             URL with encoded parameters
         """
-        # Extract encoding config
-        encoding_config = params.pop("_encoding_config", {})
+        # Extract encoding config without modifying input params
+        encoding_config = params.get("_encoding_config", {})
+
+        # Create a copy of params without encoding config
+        params_copy = {k: v for k, v in params.items() if k != "_encoding_config"}
 
         # Parse existing query params from base
         parsed = urlparse(base)
@@ -124,16 +127,17 @@ class VastUpstream(BaseUpstream[str]):
         flat_existing = {k: v[0] if v else "" for k, v in existing_params.items()}
 
         # Merge with new params
-        merged = {**flat_existing, **params}
+        merged = {**flat_existing, **params_copy}
 
         # Build query string with encoding control
         query_parts = []
         for key, value in merged.items():
-            encoded_key = urlencode({key: ""})[:-1]  # Encode key
-
             # Check if we should skip encoding for this param
             if key in encoding_config and not encoding_config[key]:
                 # Don't encode value (e.g., preserve Cyrillic)
+                from urllib.parse import quote
+
+                encoded_key = quote(str(key), safe="")
                 query_parts.append(f"{encoded_key}={value}")
             else:
                 # Normal encoding
