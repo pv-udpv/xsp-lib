@@ -1,6 +1,6 @@
-"""Industry standards (added in future issues)."""
+"""Industry standards implementations."""
 
-# Standards will be added in future issues:
-# - OpenDirect
-# - AdCOM
-# - IAB Tech Lab specifications
+# AdCOM 1.0 - Advertising Common Object Model (Issue pv-udpv/xsp-lib#6)
+from . import adcom
+
+__all__ = ["adcom"]
