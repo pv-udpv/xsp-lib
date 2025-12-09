@@ -367,7 +367,7 @@ class Ad(AdComModel):
         """Default cattax to 2 if not specified."""
         return v if v is not None else 2
 
-    def model_post_init(self, __context: object) -> None:
+    def model_post_init(self, _context: object) -> None:
         """Validate exactly one media subtype is present."""
         media_types = sum(
             [

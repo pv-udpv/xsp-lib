@@ -348,8 +348,9 @@ class AudioPlacement(AdComModel):
 class Placement(AdComModel):
     """Root Placement object.
 
-    A Placement describes an ad slot. It must contain exactly one
-    placement subtype (display, video, or audio).
+    A Placement describes an ad slot. It must contain at least one
+    placement subtype (display, video, or audio). Multiple subtypes are
+    allowed for multi-format placements.
 
     Attributes:
         tagid: Tag ID
@@ -379,7 +380,7 @@ class Placement(AdComModel):
     video: VideoPlacement | None = Field(default=None, description="Video placement")
     audio: AudioPlacement | None = Field(default=None, description="Audio placement")
 
-    def model_post_init(self, __context: object) -> None:
+    def model_post_init(self, _context: object) -> None:
         """Validate at least one placement subtype is present."""
         placement_types = sum(
             [
