@@ -9,7 +9,6 @@ from .enums import (
     AdPosition,
     ApiFramework,
     CompanionType,
-    CreativeAttribute,
     EventTrackingMethod,
     EventType,
     ExpandableDirection,

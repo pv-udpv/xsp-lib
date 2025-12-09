@@ -7,6 +7,27 @@ Reference: https://github.com/InteractiveAdvertisingBureau/AdCOM/blob/main/AdCOM
 """
 
 # Enumerations
+# Context objects
+from .context import (
+    App,
+    BrandVersion,
+    Channel,
+    Content,
+    Data,
+    Device,
+    Dooh,
+    ExtendedIdentifiers,
+    Geo,
+    Network,
+    Producer,
+    Publisher,
+    Regs,
+    Restrictions,
+    Segment,
+    Site,
+    User,
+    UserAgent,
+)
 from .enums import (
     AdPosition,
     ApiFramework,
@@ -17,9 +38,9 @@ from .enums import (
     ConnectionType,
     ContentContext,
     CreativeAttribute,
-    DOOHVenueType,
     DeliveryMethod,
     DeviceType,
+    DOOHVenueType,
     EventTrackingMethod,
     EventType,
     ExpandableDirection,
@@ -35,9 +56,6 @@ from .enums import (
     VideoPlacementType,
     VolumeNormalizationMode,
 )
-
-# Common types
-from .types import AdComModel, Metric
 
 # Media objects
 from .media import (
@@ -74,27 +92,11 @@ from .placement import (
     VideoPlacement,
 )
 
-# Context objects
-from .context import (
-    App,
-    BrandVersion,
-    Channel,
-    Content,
-    Data,
-    Device,
-    Dooh,
-    ExtendedIdentifiers,
-    Geo,
-    Network,
-    Producer,
-    Publisher,
-    Regs,
-    Restrictions,
-    Segment,
-    Site,
-    User,
-    UserAgent,
-)
+# Common types
+from .types import AdComModel, Metric
+
+# Utilities
+from .utils import get_ext, has_ext, merge_ext, set_ext
 
 # Validation functions
 from .validation import (
@@ -105,9 +107,6 @@ from .validation import (
     validate_regs,
     validate_user,
 )
-
-# Utilities
-from .utils import get_ext, has_ext, merge_ext, set_ext
 
 __version__ = "1.0"
 

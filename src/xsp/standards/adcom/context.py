@@ -6,18 +6,13 @@ Context objects describe the environment: user, device, location, content, chann
 from pydantic import Field
 
 from .enums import (
-    CategoryTaxonomy,
     ConnectionType,
     ContentContext,
-    DeliveryMethod,
     DeviceType,
     DOOHVenueType,
-    FeedType,
     LocationType,
     MediaRating,
     ProductionQuality,
-    QAGMediaRating,
-    VolumeNormalizationMode,
 )
 from .types import AdComModel
 

@@ -5,8 +5,6 @@ Validation and schema compliance checks for AdCOM objects.
 
 from typing import Any
 
-from pydantic import ValidationError
-
 from .context import App, Device, Dooh, Regs, Site, User
 from .media import Ad
 from .placement import Placement
