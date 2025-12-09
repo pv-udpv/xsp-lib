@@ -1,4 +1,9 @@
-"""Integration tests for HTTP upstream."""
+"""Integration tests for HTTP upstream.
+
+These tests require network access and will be skipped if network is unavailable.
+Run with: pytest -m network
+Skip with: pytest -m "not network"
+"""
 
 import pytest
 
@@ -6,6 +11,9 @@ pytest.importorskip("httpx")
 
 from xsp.core.base import BaseUpstream
 from xsp.transports.http import HttpTransport
+
+# Mark all tests in this module as requiring network
+pytestmark = pytest.mark.network
 
 
 @pytest.mark.asyncio

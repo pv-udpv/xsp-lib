@@ -72,7 +72,10 @@ Issues = "https://github.com/pv-udpv/xsp-lib/issues"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 timeout = 300
-addopts = "-v --cov=xsp --cov-report=term-missing"
+addopts = "-v --cov=xsp --cov-report=term-missing -m 'not network'"
+markers = [
+    "network: tests that require network access (deselect with '-m \"not network\"')",
+]
 
 [tool.mypy]
 python_version = "3.11"
