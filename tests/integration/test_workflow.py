@@ -1,6 +1,5 @@
 """Integration test for complete xsp-lib workflow."""
 
-import asyncio
 import json
 
 import pytest

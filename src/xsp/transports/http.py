@@ -67,12 +67,12 @@ class HttpTransport:
         # Extract params from metadata
         params = None
         if "_params" in headers:
-            import ast
+            import json
 
             params_str = headers.pop("_params")
             try:
-                params = ast.literal_eval(params_str)
-            except (ValueError, SyntaxError):
+                params = json.loads(params_str)
+            except json.JSONDecodeError:
                 params = {}
 
         # Build request arguments

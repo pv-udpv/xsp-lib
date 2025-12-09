@@ -100,7 +100,9 @@ class BaseUpstream(Generic[T]):
 
         # Add params to metadata if supported
         if merged_params:
-            metadata["_params"] = str(merged_params)
+            import json
+
+            metadata["_params"] = json.dumps(merged_params)
 
         # Send request with timeout
         try:
