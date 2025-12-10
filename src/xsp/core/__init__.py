@@ -9,6 +9,7 @@ from xsp.core.exceptions import (
     ValidationError,
     XspError,
 )
+from xsp.core.protocol import ProtocolHandler
 from xsp.core.transport import Transport, TransportType
 from xsp.core.types import Context, Headers, Metadata, Params
 from xsp.core.upstream import Upstream
@@ -20,6 +21,7 @@ __all__ = [
     "Headers",
     "Metadata",
     "Params",
+    "ProtocolHandler",
     "Transport",
     "TransportError",
     "TransportType",

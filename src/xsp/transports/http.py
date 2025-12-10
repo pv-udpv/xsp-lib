@@ -1,13 +1,16 @@
 """HTTP/HTTPS transport implementation."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from xsp.core.transport import TransportType
 
-try:
+if TYPE_CHECKING:
     import httpx
-except ImportError:
-    httpx = None  # type: ignore
+else:
+    try:
+        import httpx
+    except ImportError:
+        httpx = None  # type: ignore[assignment]
 
 
 class HttpTransport:
@@ -95,7 +98,7 @@ class HttpTransport:
         response = await self.client.request(**request_args)
         response.raise_for_status()
 
-        return response.content
+        return cast(bytes, response.content)
 
     async def close(self) -> None:
         """Close HTTP client if owned."""
