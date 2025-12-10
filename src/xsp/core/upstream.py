@@ -13,7 +13,7 @@ class Upstream(Protocol[T]):
     DAAST audio servers, analytics endpoints, etc.
     """
 
-    async def fetch(
+    async def request(
         self,
         *,
         params: dict[str, Any] | None = None,
@@ -22,7 +22,7 @@ class Upstream(Protocol[T]):
         timeout: float | None = None,
         **kwargs: Any,
     ) -> T:
-        """Fetch data from upstream."""
+        """Request data from upstream."""
         ...
 
     async def close(self) -> None:

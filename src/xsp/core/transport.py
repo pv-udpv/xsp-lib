@@ -24,7 +24,7 @@ class Transport(Protocol):
         """Return the transport type."""
         ...
 
-    async def send(
+    async def request(
         self,
         endpoint: str,
         payload: bytes | None = None,

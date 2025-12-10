@@ -51,7 +51,7 @@ class BaseUpstream(Generic[T]):
         self.default_headers = default_headers or {}
         self.default_timeout = default_timeout
 
-    async def fetch(
+    async def request(
         self,
         *,
         params: dict[str, Any] | None = None,
@@ -63,7 +63,7 @@ class BaseUpstream(Generic[T]):
         **kwargs: Any,
     ) -> T:
         """
-        Fetch data from upstream.
+        Request data from upstream.
 
         Args:
             params: Query parameters (merged with defaults)
@@ -107,7 +107,7 @@ class BaseUpstream(Generic[T]):
         # Send request with timeout
         try:
             raw_response = await asyncio.wait_for(
-                self.transport.send(
+                self.transport.request(
                     endpoint=effective_endpoint,
                     payload=encoded_payload,
                     metadata=metadata,
@@ -140,8 +140,8 @@ class BaseUpstream(Generic[T]):
             True if upstream is healthy, False otherwise
         """
         try:
-            # Try a simple fetch with minimal timeout
-            await self.fetch(timeout=5.0)
+            # Try a simple request with minimal timeout
+            await self.request(timeout=5.0)
             return True
         except Exception:
             return False

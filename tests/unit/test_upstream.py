@@ -8,14 +8,14 @@ from xsp.transports.memory import MemoryTransport
 
 
 @pytest.mark.asyncio
-async def test_basic_upstream_fetch():
-    """Test basic upstream fetch with memory transport."""
+async def test_basic_upstream_request():
+    """Test basic upstream request with memory transport."""
     transport = MemoryTransport(b"test response")
     upstream = BaseUpstream(
         transport=transport, decoder=lambda b: b.decode("utf-8"), endpoint="test"
     )
 
-    result = await upstream.fetch()
+    result = await upstream.request()
     assert result == "test response"
 
 
@@ -27,7 +27,7 @@ async def test_upstream_with_decoder():
     transport = MemoryTransport(b'{"key": "value"}')
     upstream = BaseUpstream(transport=transport, decoder=json.loads, endpoint="test")
 
-    result = await upstream.fetch()
+    result = await upstream.request()
     assert result == {"key": "value"}
 
 
@@ -56,7 +56,7 @@ async def test_upstream_decode_error():
     upstream = BaseUpstream(transport=transport, decoder=bad_decoder, endpoint="test")
 
     with pytest.raises(DecodeError):
-        await upstream.fetch()
+        await upstream.request()
 
 
 @pytest.mark.asyncio
@@ -70,7 +70,7 @@ async def test_upstream_with_default_params():
         default_params={"key": "value"},
     )
 
-    result = await upstream.fetch()
+    result = await upstream.request()
     assert result == "test"
 
 
@@ -85,5 +85,5 @@ async def test_upstream_with_default_headers():
         default_headers={"Authorization": "Bearer token"},
     )
 
-    result = await upstream.fetch()
+    result = await upstream.request()
     assert result == "test"

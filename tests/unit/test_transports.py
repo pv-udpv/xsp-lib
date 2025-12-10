@@ -14,7 +14,7 @@ async def test_memory_transport():
 
     assert transport.transport_type == TransportType.MEMORY
 
-    result = await transport.send(endpoint="anything")
+    result = await transport.request(endpoint="anything")
     assert result == b"test data"
 
     await transport.close()
@@ -31,7 +31,7 @@ async def test_file_transport(tmp_path):
 
     assert transport.transport_type == TransportType.FILE
 
-    result = await transport.send(endpoint=str(test_file))
+    result = await transport.request(endpoint=str(test_file))
     assert result == b"file contents"
 
     await transport.close()
@@ -43,4 +43,4 @@ async def test_file_transport_nonexistent_file():
     transport = FileTransport()
 
     with pytest.raises(FileNotFoundError):
-        await transport.send(endpoint="/nonexistent/file.txt")
+        await transport.request(endpoint="/nonexistent/file.txt")
