@@ -1,4 +1,4 @@
-"""Core exceptions for xsp-lib."""
+"""Core exceptions."""
 
 
 class XspError(Exception):
@@ -12,8 +12,21 @@ class UpstreamError(XspError):
 class TransportError(XspError):
     """Transport layer error."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        """Initialize transport error with optional status code."""
+        super().__init__(message)
+        self.status_code = status_code
 
-class UpstreamTimeout(UpstreamError):  # noqa: N818
+
+class TransportTimeoutError(TransportError):
+    """Request timed out."""
+
+
+class TransportConnectionError(TransportError):
+    """Connection failed."""
+
+
+class UpstreamTimeout(UpstreamError):
     """Upstream request timed out."""
 
 
@@ -23,3 +36,29 @@ class DecodeError(UpstreamError):
 
 class ValidationError(XspError):
     """Schema validation failed."""
+
+
+# VAST-specific exceptions
+class VastError(UpstreamError):
+    """VAST protocol error."""
+
+
+class VastTimeoutError(VastError):
+    """VAST request timed out."""
+
+
+class VastNetworkError(VastError):
+    """VAST network error."""
+
+
+class VastHttpError(VastError):
+    """VAST HTTP error."""
+
+    def __init__(self, message: str, status_code: int):
+        """Initialize VAST HTTP error with status code."""
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class VastParseError(VastError):
+    """VAST XML parsing error."""
