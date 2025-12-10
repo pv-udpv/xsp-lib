@@ -72,12 +72,6 @@ jobs:
         # Specify additional query packs to run
         # packs: 
         #   - codeql/python-queries:AlertSuppression.ql
-        
-    # Autobuild attempts to build any compiled languages (not needed for Python)
-    # For Python, CodeQL analyzes the source code directly
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
-      # Not strictly necessary for Python, but included for consistency
 
     # Run CodeQL analysis
     - name: Perform CodeQL Analysis

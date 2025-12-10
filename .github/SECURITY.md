@@ -141,7 +141,7 @@ If you prefer to remain anonymous, please let us know and we will respect your w
 
 ## Policy Updates
 
-This security policy may be updated from time to time. Check the [commit history](.github/SECURITY.md) for changes. Material changes will be announced through repository discussions or release notes.
+This security policy may be updated from time to time. Check the [commit history](https://github.com/pv-udpv/xsp-lib/commits/main/.github/SECURITY.md) for changes. Material changes will be announced through repository discussions or release notes.
 
 ## Questions?
 
