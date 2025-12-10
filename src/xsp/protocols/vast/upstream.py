@@ -12,7 +12,10 @@ from .types import VastVersion
 from .validation import validate_vast_xml
 
 
-@configurable(namespace="vast", description="VAST protocol upstream for video ad serving")
+@configurable(
+    namespace="vast",
+    description="VAST protocol upstream for video ad serving",
+)
 class VastUpstream(BaseUpstream[str]):
     """
     VAST upstream for video ad serving.
@@ -186,6 +189,10 @@ class VastUpstream(BaseUpstream[str]):
         return await self.fetch(params=vast_params, context=context, **kwargs)
 
 
+@configurable(
+    namespace="vmap",
+    description="VMAP upstream for video ad pod scheduling",
+)
 class VmapUpstream(VastUpstream):
     """
     VMAP (Video Multiple Ad Playlist) upstream.

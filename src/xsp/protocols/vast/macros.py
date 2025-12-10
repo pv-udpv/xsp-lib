@@ -5,7 +5,13 @@ import time
 from collections.abc import Callable
 from urllib.parse import quote
 
+from xsp.core.configurable import configurable
 
+
+@configurable(
+    namespace="vast.macros",
+    description="IAB macro substitution configuration",
+)
 class MacroSubstitutor:
     """
     IAB standard macro substitution for VAST URLs.
@@ -20,12 +26,26 @@ class MacroSubstitutor:
     Plus custom macros via registration.
     """
 
-    def __init__(self) -> None:
-        """Initialize with built-in macro providers."""
-        self.providers: dict[str, Callable[[], str]] = {
-            "TIMESTAMP": lambda: str(int(time.time() * 1000)),
-            "CACHEBUSTING": lambda: str(random.randint(100000000, 999999999)),
-        }
+    def __init__(
+        self,
+        *,
+        enable_cachebusting: bool = True,
+        enable_timestamp: bool = True,
+    ) -> None:
+        """
+        Initialize with built-in macro providers.
+
+        Args:
+            enable_cachebusting: Enable [CACHEBUSTING] macro
+            enable_timestamp: Enable [TIMESTAMP] macro
+        """
+        self.providers: dict[str, Callable[[], str]] = {}
+
+        if enable_timestamp:
+            self.providers["TIMESTAMP"] = lambda: str(int(time.time() * 1000))
+
+        if enable_cachebusting:
+            self.providers["CACHEBUSTING"] = lambda: str(random.randint(100000000, 999999999))
 
     def register(self, macro: str, provider: Callable[[], str]) -> None:
         """

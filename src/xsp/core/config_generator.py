@@ -1,137 +1,108 @@
-"""Generate configuration templates from @configurable registry."""
+"""Configuration file generator for XSP.
 
-import enum
-from collections import defaultdict
+Generates TOML configuration templates from @configurable classes.
+"""
+
+from enum import Enum
 from typing import Any
 
-from .configurable import ConfigMetadata, get_configurable_registry
+from .configurable import get_configurable_registry
 
 
 class ConfigGenerator:
-    """Generate configuration files from @configurable registry."""
+    """Generate TOML configuration templates."""
 
     @staticmethod
-    def generate_toml(group_by: str = "namespace") -> str:
+    def generate_toml() -> str:
         """
-        Generate TOML configuration template.
-
-        Args:
-            group_by: Grouping strategy ("namespace" or "class")
+        Generate TOML configuration template from registered classes.
 
         Returns:
-            TOML configuration string
+            TOML configuration string with all registered configurable classes
         """
         registry = get_configurable_registry()
+        if not registry:
+            return "# No configurable classes registered\n"
 
-        if group_by == "namespace":
-            grouped = ConfigGenerator._group_by_namespace(registry)
-        elif group_by == "class":
-            grouped = ConfigGenerator._group_by_class(registry)
-        else:
-            raise ValueError(f"Unknown group_by: {group_by}")
+        lines = []
 
-        lines = [
-            "# XSP-lib Configuration Template",
-            "# Auto-generated from @configurable registry",
-            "#",
-            "# This file contains all configurable parameters from xsp-lib.",
-            "# Uncomment and modify values as needed.",
-            "",
-        ]
+        # Sort namespaces for consistent output
+        for namespace in sorted(registry.keys()):
+            metadata = registry[namespace]
+            lines.append(f"[{namespace}]")
+            lines.append(f"# {metadata['description']}")
+            lines.append(f"# Source: {metadata['class'].__name__}")
+            lines.append("")
 
-        for section, metadata_list in sorted(grouped.items()):
-            lines.append(f"[{section}]")
+            # Sort parameters for consistent output
+            for param_name in sorted(metadata["params"].keys()):
+                param_info = metadata["params"][param_name]
+                
+                # Add parameter documentation from docstring if available
+                # For now, just add type annotation
+                annotation = param_info.get("annotation")
+                if annotation:
+                    type_name = _format_type(annotation)
+                    lines.append(f"# Type: {type_name}")
 
-            for metadata in metadata_list:
-                if metadata.description:
-                    lines.append(f"# {metadata.description}")
-
-                lines.append(f"# Source: {metadata.cls.__name__}")
+                # Add default value
+                default = param_info["default"]
+                toml_value = _to_toml_value(default)
+                lines.append(f"{param_name} = {toml_value}")
                 lines.append("")
 
-                for param_name, param_info in metadata.parameters.items():
-                    # Add parameter description
-                    if param_info.description:
-                        lines.append(f"# {param_info.description}")
-
-                    # Add type hint as comment
-                    type_str = ConfigGenerator._format_type(param_info.type)
-                    lines.append(f"# Type: {type_str}")
-
-                    # Add parameter with default value
-                    value_str = ConfigGenerator._format_toml_value(param_info.default)
-                    lines.append(f"{param_name} = {value_str}")
-                    lines.append("")
-
-            lines.append("")  # Extra blank line between sections
+            lines.append("")
 
         return "\n".join(lines)
 
-    @staticmethod
-    def generate_yaml(group_by: str = "namespace") -> str:
-        """Generate YAML configuration template."""
-        # Similar implementation for YAML
-        raise NotImplementedError("YAML generation coming in future PR")
 
-    @staticmethod
-    def _group_by_namespace(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
-        """Group metadata by namespace."""
-        grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
+def _format_type(annotation: Any) -> str:
+    """
+    Format type annotation for documentation.
 
-        for metadata in registry.values():
-            grouped[metadata.namespace].append(metadata)
+    Args:
+        annotation: Type annotation object
 
-        return grouped
+    Returns:
+        Human-readable type string
+    """
+    if hasattr(annotation, "__name__"):
+        return str(annotation.__name__)
+    
+    # Handle typing module types
+    type_str = str(annotation)
+    
+    # Clean up typing module prefixes
+    if type_str.startswith("typing."):
+        type_str = type_str[7:]
+    
+    # Clean up common patterns
+    type_str = type_str.replace("typing.", "")
+    
+    return type_str
 
-    @staticmethod
-    def _group_by_class(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
-        """Group metadata by class name (lowercased)."""
-        grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
 
-        for metadata in registry.values():
-            key = metadata.cls.__name__.lower()
-            grouped[key].append(metadata)
+def _to_toml_value(value: Any) -> str:
+    """
+    Convert Python value to TOML representation.
 
-        return grouped
+    Args:
+        value: Python value
 
-    @staticmethod
-    def _format_type(type_hint: type | str) -> str:
-        """Format type hint for display."""
-        if isinstance(type_hint, str):
-            return type_hint
-
-        if hasattr(type_hint, "__name__"):
-            return type_hint.__name__
-
-        return str(type_hint)
-
-    @staticmethod
-    def _format_toml_value(value: Any) -> str:
-        """Format Python value as TOML."""
-        if value is None:
-            # Note: None is represented as empty string in TOML.
-            # In practice, configurable parameters should have meaningful defaults.
-            return '""'
-        elif isinstance(value, bool):
-            return str(value).lower()
-        elif isinstance(value, enum.Enum):
-            return f'"{value.value}"'
-        elif isinstance(value, str):
-            return f'"{value}"'
-        elif isinstance(value, (int, float)):
-            return str(value)
-        elif isinstance(value, (list, tuple)):
-            items = [ConfigGenerator._format_toml_value(item) for item in value]
-            return f"[{', '.join(items)}]"
-        elif isinstance(value, dict):
-            # Inline table format
-            items = [
-                f"{k} = {ConfigGenerator._format_toml_value(v)}" for k, v in value.items()
-            ]
-            return f"{{ {', '.join(items)} }}"
-        else:
-            return f'"{value}"'
+    Returns:
+        TOML string representation
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    elif isinstance(value, Enum):
+        # Handle enum values
+        return f'"{value.value}"'
+    elif isinstance(value, str):
+        return f'"{value}"'
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif value is None:
+        return '""'  # TOML doesn't have null, use empty string
+    else:
+        # For other objects, use string representation
+        return f'"{str(value)}"'
