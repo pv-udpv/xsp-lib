@@ -104,8 +104,18 @@ xsp-lib/
 │   ├── core/                   # Base abstractions
 │   │   ├── base.py             # BaseUpstream implementation
 │   │   ├── upstream.py         # Upstream protocol
-│   │   └── errors.py           # XspError hierarchy
-│   ├── protocols/              # AdTech protocols (VAST, OpenRTB, etc.)
+│   │   ├── transport.py        # Transport protocol
+│   │   ├── exceptions.py       # XspError hierarchy
+│   │   ├── config.py           # Settings and configuration
+│   │   ├── configurable.py     # Configurable upstream mixin
+│   │   ├── config_generator.py # Config file generator
+│   │   └── types.py            # Type definitions
+│   ├── protocols/              # AdTech protocol implementations
+│   │   └── vast/               # VAST 3.0-4.2 implementation
+│   │       ├── upstream.py     # VAST upstream client
+│   │       ├── types.py        # VAST type definitions
+│   │       ├── macros.py       # Macro substitution
+│   │       └── validation.py   # XML validation
 │   ├── transports/             # Transport implementations
 │   │   ├── http.py             # HTTP/HTTPS transport
 │   │   ├── file.py             # File-based transport
@@ -113,15 +123,25 @@ xsp-lib/
 │   ├── middleware/             # Middleware components
 │   │   ├── base.py             # Middleware base classes
 │   │   └── retry.py            # Retry middleware
+│   ├── standards/              # Industry standards
+│   │   └── adcom/              # IAB AdCOM implementation
+│   ├── schemas/                # JSON/XML schemas
+│   ├── cli/                    # Command-line tools
 │   └── utils/                  # Utility modules
 ├── tests/
 │   ├── unit/                   # Unit tests
+│   │   ├── test_*.py           # Test files by module
+│   │   └── standards/          # Standards tests
 │   ├── integration/            # Integration tests
 │   └── fixtures/               # Test data and fixtures
+│       └── vast/               # VAST XML examples
 ├── docs/                       # Documentation
 │   ├── architecture.md         # Architecture overview
 │   ├── quickstart.md           # Getting started guide
+│   ├── configuration.md        # Configuration guide
+│   ├── adcom.md                # AdCOM documentation
 │   └── protocols/              # Protocol-specific docs
+│       └── vast.md             # VAST protocol guide
 ├── examples/                   # Usage examples
 ├── pyproject.toml              # Project configuration
 ├── README.md                   # Project overview
