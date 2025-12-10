@@ -21,6 +21,11 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
@@ -46,6 +51,8 @@ jobs:
           npx -y @modelcontextprotocol/server-filesystem --help || echo "Filesystem server OK"
           node --version
           npm --version
+          echo "Checking uvx for Python-based MCP servers..."
+          uvx --help | head -n 5
 
       - name: Verify CLI tools
         run: |
@@ -53,6 +60,8 @@ jobs:
           poetry run pytest --version
           poetry run mypy --version
           poetry run ruff --version
+          uv --version
+          uvx --version
 
       - name: Validate MCP configuration
         run: |
@@ -69,6 +78,7 @@ jobs:
           echo "=== Environment Information ==="
           echo "Python version: $(python --version)"
           echo "Poetry version: $(poetry --version)"
+          echo "uv version: $(uv --version)"
           echo "Node.js version: $(node --version)"
           echo "Working directory: $(pwd)"
           echo "PATH: $PATH"

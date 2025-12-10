@@ -228,12 +228,13 @@ MCP is automatically enabled when using GitHub Copilot with this repository. No 
 The repository includes a dedicated workflow (`.github/workflows/copilot-setup-steps.yml`) that GitHub Copilot coding agent uses to prepare the development environment. This workflow:
 
 - Installs Python 3.12 with Poetry
+- Installs uv for Python-based MCP server execution (via uvx)
 - Installs all project dependencies
 - Sets up Node.js for MCP servers
-- Verifies CLI tools (pytest, mypy, ruff)
+- Verifies CLI tools (pytest, mypy, ruff, uv, uvx)
 - Validates MCP configuration
 
-This ensures the agent has a fully configured environment before executing tasks.
+This ensures the agent has a fully configured environment before executing tasks, including support for running Python-based MCP servers through `uvx`.
 
 ### Verifying MCP Configuration
 
