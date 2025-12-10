@@ -14,9 +14,21 @@ Welcome to the **xsp-lib** documentation - the universal AdTech service protocol
 
 - [Quick Start Guide](quickstart.md)
 - [Architecture Overview](architecture.md)
-- [API Reference](api/)
+- [Configuration Guide](configuration.md)
 - [Protocol Documentation](protocols/)
-- [Standards Documentation](standards/)
+- [Standards Documentation (AdCOM)](adcom.md)
+
+### Architecture Documentation
+
+- [Final Architecture](architecture/final-architecture.md) - Complete system design
+- [Session Management](architecture/session-management.md) - Session lifecycle and patterns
+- [Terminology Guide](architecture/terminology.md) - Correct terminology (dial/request/resolve/serve)
+- [Protocol-Agnostic Design](architecture/protocol-agnostic-design.md) - TypedDict schemas and extensions
+
+### Guides
+
+- [Session Management Guide](guides/session-management.md) - Practical session examples
+- [Stateful Ad Serving](guides/stateful-ad-serving.md) - Frequency capping and budget tracking
 
 ## Installation
 
