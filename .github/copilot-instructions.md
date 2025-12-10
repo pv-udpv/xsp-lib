@@ -439,14 +439,14 @@ ruff check src tests --fix
 ruff format src tests
 
 # Check and fix with unsafe fixes (use with caution)
-COPILOT_RUFF_CHECK_ARGS="--fix:--unsafe-fixes" ruff check src tests
+ruff check src tests --fix --unsafe-fixes
 ```
 
 ## Environment Variables for Copilot
 
 ```bash
 # Ruff auto-fix configuration for Copilot
-export COPILOT_RUFF_CHECK_ARGS="--fix:--unsafe-fixes"
+export COPILOT_RUFF_CHECK_ARGS="--fix --unsafe-fixes"
 ```
 
 ## Pre-commit Checklist
