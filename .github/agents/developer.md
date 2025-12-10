@@ -214,11 +214,11 @@ mypy src/xsp --strict
 
 ### Code Style
 ```bash
-# Format with black
-black src/xsp
+# Lint and auto-fix with ruff
+ruff check src/xsp --fix
 
-# Lint with ruff
-ruff check src/xsp
+# Format with ruff
+ruff format src/xsp
 ```
 
 ### Dependencies

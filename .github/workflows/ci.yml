@@ -35,7 +35,7 @@ jobs:
         if: matrix.python-version == '3.12' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           # run auto-fix (continue even if there are unfixable errors)
-          ruff --fix . || true
+          ruff check --fix . || true
 
           # Only commit & push when there are changes
           if [ -n "$(git status --porcelain)" ]; then
