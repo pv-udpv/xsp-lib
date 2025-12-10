@@ -18,6 +18,15 @@ Welcome to the **xsp-lib** documentation - the universal AdTech service protocol
 - [Protocol Documentation](protocols/)
 - [Standards Documentation](standards/)
 
+## Architecture Documentation
+
+In-depth architecture documentation:
+
+- [Final Architecture](architecture-final.md) - Complete system architecture with layers, components, and data flow
+- [Session Management](architecture-session-management.md) - Stateful ad serving with frequency capping and budget tracking
+- [Terminology Reference](architecture-terminology.md) - Precise terminology for each architectural layer
+- [Protocol-Agnostic Design](architecture-protocol-agnostic-design.md) - Generic schemas and protocol handlers
+
 ## Installation
 
 ```bash
