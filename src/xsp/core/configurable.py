@@ -76,3 +76,12 @@ def get_configurable_registry() -> dict[str, dict[str, Any]]:
         Dictionary mapping namespace to class metadata
     """
     return _CONFIGURABLE_REGISTRY.copy()
+
+
+def clear_configurable_registry() -> None:
+    """
+    Clear the global configurable registry.
+    
+    This is primarily useful for testing to ensure test isolation.
+    """
+    _CONFIGURABLE_REGISTRY.clear()

@@ -3,6 +3,7 @@
 Generates TOML configuration templates from @configurable classes.
 """
 
+from enum import Enum
 from typing import Any
 
 from .configurable import get_configurable_registry
@@ -66,8 +67,7 @@ def _format_type(annotation: Any) -> str:
         Human-readable type string
     """
     if hasattr(annotation, "__name__"):
-        name: str = getattr(annotation, "__name__")
-        return name
+        return str(annotation.__name__)
     
     # Handle typing module types
     type_str = str(annotation)
@@ -94,17 +94,15 @@ def _to_toml_value(value: Any) -> str:
     """
     if isinstance(value, bool):
         return "true" if value else "false"
-    elif isinstance(value, str):
+    elif isinstance(value, Enum):
         # Handle enum values
-        if hasattr(value, "value"):
-            return f'"{value.value}"'
+        return f'"{value.value}"'
+    elif isinstance(value, str):
         return f'"{value}"'
     elif isinstance(value, (int, float)):
         return str(value)
     elif value is None:
         return '""'  # TOML doesn't have null, use empty string
     else:
-        # For enums and other objects, try to get string representation
-        if hasattr(value, "value"):
-            return f'"{value.value}"'
+        # For other objects, use string representation
         return f'"{str(value)}"'

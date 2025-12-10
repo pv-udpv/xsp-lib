@@ -3,14 +3,12 @@
 import pytest
 
 from xsp.core.config_generator import ConfigGenerator
-from xsp.core.configurable import configurable, get_configurable_registry
+from xsp.core.configurable import clear_configurable_registry, configurable, get_configurable_registry
 
 
 def test_configurable_decorator():
     """Test that @configurable registers a class."""
-    # Clear registry first (to avoid pollution from other tests)
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     @configurable(namespace="test", description="Test class")
     class TestClass:
@@ -30,8 +28,7 @@ def test_configurable_decorator():
 
 def test_configurable_ignores_positional():
     """Test that @configurable ignores positional parameters."""
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     @configurable(namespace="test2", description="Test class 2")
     class TestClass2:
@@ -48,8 +45,7 @@ def test_configurable_ignores_positional():
 
 def test_config_generator_empty():
     """Test config generator with no registered classes."""
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     toml = ConfigGenerator.generate_toml()
     assert "No configurable classes registered" in toml
@@ -57,8 +53,7 @@ def test_config_generator_empty():
 
 def test_config_generator_basic():
     """Test config generator with a basic class."""
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     @configurable(namespace="basic", description="Basic test class")
     class BasicClass:
@@ -76,8 +71,7 @@ def test_config_generator_basic():
 
 def test_config_generator_multiple_namespaces():
     """Test config generator with multiple namespaces."""
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     @configurable(namespace="first", description="First class")
     class FirstClass:
@@ -98,8 +92,7 @@ def test_config_generator_multiple_namespaces():
 
 def test_config_generator_nested_namespace():
     """Test config generator with nested namespace."""
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    _CONFIGURABLE_REGISTRY.clear()
+    clear_configurable_registry()
 
     @configurable(namespace="parent.child", description="Nested class")
     class NestedClass:
@@ -109,3 +102,19 @@ def test_config_generator_nested_namespace():
     toml = ConfigGenerator.generate_toml()
     assert "[parent.child]" in toml
     assert "Nested class" in toml
+
+
+def test_clear_registry():
+    """Test clearing the configurable registry."""
+    clear_configurable_registry()
+
+    @configurable(namespace="test", description="Test")
+    class TestClass:
+        def __init__(self, *, value: str = "test"):
+            self.value = value
+
+    assert len(get_configurable_registry()) == 1
+    
+    clear_configurable_registry()
+    
+    assert len(get_configurable_registry()) == 0
