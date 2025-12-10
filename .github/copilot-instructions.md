@@ -68,6 +68,29 @@ When you (@copilot) are assigned to a GitHub issue:
 - ⚠️ ASK FOR CLARIFICATION: Architectural changes, breaking changes, security-critical code
 - ❌ DO NOT HANDLE: Repository settings, GitHub Actions secrets, organization-level changes
 
+### Issue Templates
+
+When users create issues, they will use one of these templates:
+
+- **🐛 Bug Report** - For reporting bugs with reproduction steps
+- **✨ Feature Request** - For suggesting new features
+- **🔌 Protocol Implementation** - For requesting new protocol support (VAST, OpenRTB, etc.)
+- **📝 Documentation** - For documentation issues
+- **🤖 Copilot Task** - Specifically designed for Copilot assignments
+
+The **Copilot Task** template provides:
+- Clear task description and acceptance criteria
+- Complexity estimate
+- Files to modify
+- Quality requirements
+- Expected usage examples
+
+**When assigned a Copilot Task issue:**
+1. The acceptance criteria are your checklist - mark them off as you complete them
+2. The "Files to Create/Modify" section tells you exactly what to change
+3. The "Quality Requirements" are mandatory - tests, type hints, docs must be included
+4. Use the "Expected Usage/Behavior" as your specification
+
 ## Custom Agent Coordination
 
 ### Available Agents
@@ -107,6 +130,68 @@ When you (@copilot) are assigned to a GitHub issue:
 - Comment on conflicts immediately: "@orchestrator conflict in file X"
 - Wait for coordination decision before proceeding
 
+## Naming Conventions
+
+### Issue Titles
+
+Follow the format: `[Type] [Scope]: Brief description (#Parent if applicable)`
+
+**Examples:**
+- Standalone: `🐛 [VAST]: Timeout error in wrapper resolution`
+- Child task: `└─ [OpenRTB]: Implement bid request types (#15)`
+- Epic: `🎯 OpenRTB 2.6 Implementation`
+
+**Scopes:**
+- `[Core]` - Core abstractions
+- `[VAST]` - VAST protocol
+- `[OpenRTB]` - OpenRTB protocol
+- `[Middleware]` - Middleware
+- `[CI]` - CI/CD
+- `[Docs]` - Documentation
+
+**Parent References:**
+- Always reference parent issue in title using `(#ParentNumber)`
+- Use `└─` prefix for child issues to show visual hierarchy
+- Example: `└─ [VAST]: Add macro substitution (#10)` is a child of `#10`
+
+### PR Titles
+
+Follow conventional commits format: `type(scope): description (#IssueNumber)`
+
+**Examples:**
+- `feat(vast): implement wrapper resolution (#10)`
+- `fix(openrtb): correct bid validation (#23)`
+- `docs(api): update VAST examples (#45)`
+
+**For child PRs, also reference parent:**
+- `feat(openrtb): implement bid request types (#15) [Epic: #5]`
+
+### Branch Names
+
+Format: `type/scope/brief-description-issue-number`
+
+**Examples:**
+- `feature/vast/wrapper-resolution-10`
+- `fix/openrtb/validation-23`
+- `copilot/vast/macro-substitution-45`
+
+**For child branches:**
+- `feature/openrtb/bid-request-types-15-epic-5`
+
+### Commit Messages
+
+Follow conventional commits:
+
+```
+type(scope): subject
+
+body (optional)
+
+Part of #IssueNumber (Epic: #ParentNumber)
+```
+
+**Full details:** See [NAMING_CONVENTIONS.md](../.github/NAMING_CONVENTIONS.md)
+
 ## PR Management Best Practices
 
 ### PR Description Format
@@ -117,6 +202,7 @@ When you (@copilot) are assigned to a GitHub issue:
 
 ## Related Issue
 Fixes #<issue-number>
+[Epic: #<parent-issue> if applicable]
 
 ## Implementation Plan
 - [ ] Task 1: [description]
