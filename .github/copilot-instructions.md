@@ -13,6 +13,132 @@ Your role is to help develop, document, and troubleshoot the xsp-lib repository 
 
 ---
 
+# Project Setup & Commands
+
+## Installation
+
+```bash
+# Clone repository
+git clone https://github.com/pv-udpv/xsp-lib.git
+cd xsp-lib
+
+# Install in development mode with all dependencies
+pip install -e .[dev,http]
+
+# Or install specific extras
+pip install -e .[dev,http,vast,openrtb]
+```
+
+## Build Commands
+
+```bash
+# Build package (creates dist/ directory)
+python -m pip install --upgrade pip build
+python -m build
+
+# Check package integrity
+python -m pip install --upgrade twine
+twine check dist/*
+```
+
+## Testing Commands
+
+```bash
+# Run all tests with coverage
+pytest
+
+# Run specific test file
+pytest tests/unit/test_base.py
+
+# Run tests without network tests
+pytest -m "not network"
+
+# Run tests with verbose output
+pytest -v
+
+# Run tests with coverage report
+pytest --cov=xsp --cov-report=term-missing
+```
+
+## Linting Commands
+
+```bash
+# Auto-fix with ruff (safe fixes only)
+ruff check --fix src tests
+
+# Check without fixing
+ruff check src tests
+
+# Format code with black
+black src tests
+
+# Check formatting without modifying
+black --check src tests
+```
+
+## Type Checking Commands
+
+```bash
+# Type check source code (strict mode)
+mypy src
+
+# Type check specific file
+mypy src/xsp/core/base.py
+```
+
+## Project Structure
+
+```
+xsp-lib/
+├── .github/
+│   ├── agents/                 # Custom Copilot agents
+│   │   ├── developer.md        # Code implementation agent
+│   │   ├── doc-writer.md       # Documentation agent
+│   │   ├── orchestrator.md     # Task planning agent
+│   │   └── tester.md           # Testing agent
+│   ├── workflows/              # CI/CD workflows
+│   │   ├── ci.yml              # Lint, test, type check
+│   │   └── release.yml         # Package publishing
+│   └── copilot-instructions.md # This file
+├── src/xsp/
+│   ├── core/                   # Base abstractions
+│   │   ├── base.py             # BaseUpstream implementation
+│   │   ├── upstream.py         # Upstream protocol
+│   │   └── errors.py           # XspError hierarchy
+│   ├── protocols/              # AdTech protocols (VAST, OpenRTB, etc.)
+│   ├── transports/             # Transport implementations
+│   │   ├── http.py             # HTTP/HTTPS transport
+│   │   ├── file.py             # File-based transport
+│   │   └── memory.py           # In-memory transport
+│   ├── middleware/             # Middleware components
+│   │   ├── base.py             # Middleware base classes
+│   │   └── retry.py            # Retry middleware
+│   └── utils/                  # Utility modules
+├── tests/
+│   ├── unit/                   # Unit tests
+│   ├── integration/            # Integration tests
+│   └── fixtures/               # Test data and fixtures
+├── docs/                       # Documentation
+│   ├── architecture.md         # Architecture overview
+│   ├── quickstart.md           # Getting started guide
+│   └── protocols/              # Protocol-specific docs
+├── examples/                   # Usage examples
+├── pyproject.toml              # Project configuration
+├── README.md                   # Project overview
+└── AGENTS.md                   # Copilot agents guide
+```
+
+## Dependencies
+
+- **Python**: 3.11+ required (strict typing support)
+- **Core**: typing-extensions>=4.8.0
+- **HTTP Transport**: httpx>=0.25.0
+- **VAST Protocol**: lxml>=5.0.0
+- **OpenRTB Protocol**: orjson>=3.9.0
+- **Development**: pytest, mypy, ruff, black (see pyproject.toml)
+
+---
+
 # Behavioral Guidelines
 
 ## Code Development
