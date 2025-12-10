@@ -1,10 +1,18 @@
 # Protocol-Agnostic Orchestrator
 
-The orchestrator provides a unified interface for ad serving across multiple AdTech protocols (VAST, VMAP, OpenRTB, custom) with common cross-cutting concerns like caching and tracking.
+The orchestrator provides a unified interface for the complete ad serving lifecycle across multiple AdTech protocols (VAST, VMAP, OpenRTB, custom). It orchestrates end-to-end workflows including ad request/response handling, ad selection, delivery, billing, and reporting, with common cross-cutting concerns like caching and tracking.
 
 ## Overview
 
-The orchestrator layer consists of three main components:
+The orchestrator layer provides end-to-end ad serving orchestration, managing the complete lifecycle from request to reporting. While AdRequest and AdResponse provide the interface contracts, the orchestrator's responsibilities extend across:
+
+- **Request/Response Handling** - Protocol-agnostic request validation and response normalization
+- **Ad Selection** - Coordinating with protocol handlers to select appropriate ads
+- **Delivery** - Managing creative delivery and tracking
+- **Billing** - Integration points for cost tracking and budget management
+- **Reporting** - Resolution metadata, performance metrics, and audit trails
+
+The core layer consists of three main components:
 
 1. **Flexible Schemas** (`AdRequest`, `AdResponse`) - TypedDict-based schemas that work across protocols
 2. **Protocol Handler Interface** (`ProtocolHandler`) - ABC for protocol-specific implementations
