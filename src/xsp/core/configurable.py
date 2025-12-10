@@ -1,32 +1,28 @@
 """Configurable decorator for explicit configuration control."""
 
-from __future__ import annotations
-
 from typing import Any, TypeVar, get_type_hints
 import inspect
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 T = TypeVar("T")
 
 
 @dataclass
-class ParameterInfo:
-    """Information about configurable parameter."""
-
-    name: str
-    type_hint: type | str
-    default: Any
-    description: str | None = None
-
-
-@dataclass
 class ConfigMetadata:
     """Metadata for configurable class."""
-
     cls: type
     namespace: str
     description: str | None
-    parameters: dict[str, ParameterInfo] = field(default_factory=dict)
+    parameters: dict[str, "ParameterInfo"]
+
+
+@dataclass
+class ParameterInfo:
+    """Information about configurable parameter."""
+    name: str
+    type: type | str
+    default: Any
+    description: str | None = None
 
 
 # Global registry of configurable classes
@@ -37,61 +33,51 @@ def configurable(
     *,
     namespace: str | None = None,
     description: str | None = None,
-) -> Any:
+):
     """
     Mark class as configurable.
-
+    
     Extracts __init__ parameters and registers them in the global
     configuration registry. Enables automatic config generation.
-
+    
     Args:
-        namespace: Configuration namespace (e.g., "vast", "openrtb", "http")
+        namespace: Configuration namespace (e.g., "vast", "openrtb")
                   Defaults to module name if not provided
         description: Human-readable description for documentation
-
+    
     Example:
-        ```python
         @configurable(
-            namespace="http",
-            description="HTTP transport configuration"
+            namespace="vast",
+            description="VAST protocol upstream settings"
         )
-        class HttpTransport:
+        class VastUpstream:
             def __init__(
                 self,
-                client: Any | None = None,
+                transport: Transport,
+                endpoint: str,
                 *,
-                method: str = "GET",
+                version: VastVersion = VastVersion.V4_2,
+                enable_macros: bool = True,
+                validate_xml: bool = False,
                 timeout: float = 30.0,
-                max_retries: int = 3,
             ):
                 ...
-        ```
-
+        
         Generates config section:
-        ```toml
-        [http]
-        # HTTP transport configuration
-        method = "GET"
+        [vast]
+        # VAST protocol upstream settings
+        version = "4.2"
+        enable_macros = true
+        validate_xml = false
         timeout = 30.0
-        max_retries = 3
-        ```
-
-    Note:
-        Only keyword-only parameters (after *) with default values
-        are extracted. Required positional args are not configurable.
     """
-
     def decorator(cls: type[T]) -> type[T]:
-        # Determine namespace from module if not provided
-        ns = namespace
-        if ns is None:
-            # Extract from module path: xsp.transports.http -> http
-            module_parts = cls.__module__.split(".")
-            ns = module_parts[-1] if module_parts else "config"
-
+        # Determine namespace
+        ns = namespace or cls.__module__.split(".")[-1]
+        
         # Extract parameters from __init__
         params = _extract_parameters(cls)
-
+        
         # Create metadata
         metadata = ConfigMetadata(
             cls=cls,
@@ -99,120 +85,111 @@ def configurable(
             description=description,
             parameters=params,
         )
-
-        # Register in global registry
+        
+        # Register
         registry_key = f"{ns}.{cls.__name__}"
         _CONFIGURABLE_REGISTRY[registry_key] = metadata
-
+        
         # Store metadata on class for introspection
-        cls._config_namespace = ns  # type: ignore[attr-defined]
-        cls._config_description = description  # type: ignore[attr-defined]
-        cls._config_parameters = params  # type: ignore[attr-defined]
-
+        cls._config_namespace = ns  # type: ignore
+        cls._config_description = description  # type: ignore
+        cls._config_parameters = params  # type: ignore
+        
         return cls
-
+    
     return decorator
 
 
 def _extract_parameters(cls: type) -> dict[str, ParameterInfo]:
     """
     Extract configurable parameters from class __init__.
-
-    Only extracts keyword-only parameters (after *) with default values
-    to avoid including required positional args.
+    
+    Only extracts keyword-only parameters (after *) to avoid
+    including required positional args like `transport`.
     """
-    try:
-        sig = inspect.signature(cls.__init__)
-    except (ValueError, TypeError):
-        # __init__ not available or is built-in
-        return {}
-
+    sig = inspect.signature(cls.__init__)
     try:
         type_hints = get_type_hints(cls.__init__)
     except Exception:
-        # Type hints may fail for various reasons
         type_hints = {}
-
+    
     params: dict[str, ParameterInfo] = {}
-
-    # Track if we've entered keyword-only section
+    
+    # Track if we've seen * (keyword-only marker)
     kwonly_started = False
-
+    
     for param_name, param in sig.parameters.items():
         if param_name == "self":
             continue
-
-        # Detect start of keyword-only args
+        
+        # Mark start of keyword-only args
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             kwonly_started = True
             continue
-
-        # Check if this is keyword-only
-        is_kwonly = param.kind == inspect.Parameter.KEYWORD_ONLY or kwonly_started
-
-        # Only include keyword-only params with defaults
-        if not is_kwonly:
+        
+        # Only include keyword-only args with defaults
+        if not kwonly_started:
             continue
-
+        
         if param.default == inspect.Parameter.empty:
             continue
-
+        
         # Extract type and default
         param_type = type_hints.get(param_name, Any)
         default_value = param.default
-
+        
         # Extract description from docstring if available
-        param_description = _extract_param_description(
+        description = _extract_param_description(
             cls.__init__.__doc__, param_name
         )
-
+        
         params[param_name] = ParameterInfo(
             name=param_name,
-            type_hint=param_type,
+            type=param_type,
             default=default_value,
-            description=param_description,
+            description=description,
         )
-
+    
     return params
 
 
 def _extract_param_description(docstring: str | None, param_name: str) -> str | None:
     """
-    Extract parameter description from Google-style docstring.
-
-    Example:
+    Extract parameter description from docstring.
+    
+    Supports Google-style docstrings:
         Args:
             param_name: Description here
     """
     if not docstring:
         return None
-
+    
     lines = docstring.split("\n")
     in_args_section = False
-
+    
     for line in lines:
         stripped = line.strip()
-
+        
         if stripped.startswith("Args:"):
             in_args_section = True
             continue
-
+        
         if in_args_section:
-            # End of Args section (next section or unindented line)
-            if stripped and not line.startswith((" ", "\t")):
+            # End of Args section
+            if stripped and not stripped.startswith(" ") and not param_name in stripped:
                 break
-
-            # Check if this line contains our parameter
+            
+            # Check for param
             if param_name in stripped and ":" in stripped:
                 parts = stripped.split(":", 1)
-                if len(parts) == 2 and param_name in parts[0]:
+                if len(parts) == 2:
                     return parts[1].strip()
-
+    
     return None
 
 
 def get_configurable_registry() -> dict[str, ConfigMetadata]:
-    """Get copy of all registered configurable classes."""
+    """Get all registered configurable classes."""
     return _CONFIGURABLE_REGISTRY.copy()
 
 
@@ -220,11 +197,6 @@ def get_configurable_by_namespace(namespace: str) -> list[ConfigMetadata]:
     """Get all configurables for a specific namespace."""
     return [
         metadata
-        for metadata in _CONFIGURABLE_REGISTRY.values()
+        for key, metadata in _CONFIGURABLE_REGISTRY.items()
         if metadata.namespace == namespace
     ]
-
-
-def clear_registry() -> None:
-    """Clear the configurable registry (mainly for testing)."""
-    _CONFIGURABLE_REGISTRY.clear()
