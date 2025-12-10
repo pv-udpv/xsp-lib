@@ -2,14 +2,14 @@
 
 from typing import Any
 
+import httpx
+
 from xsp.core.exceptions import (
     TransportConnectionError,
     TransportError,
     TransportTimeoutError,
 )
 from xsp.core.transport import TransportType
-
-import httpx
 
 
 class HttpTransport:
