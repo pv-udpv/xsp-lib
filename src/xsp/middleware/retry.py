@@ -59,7 +59,7 @@ class RetryMiddleware:
 
                 # Don't sleep after last attempt
                 if attempt < self.max_attempts - 1:
-                    delay = self.backoff_base**attempt
+                    delay = self.backoff_base * (2**attempt)
                     await asyncio.sleep(delay)
 
         # All retries exhausted, raise last exception

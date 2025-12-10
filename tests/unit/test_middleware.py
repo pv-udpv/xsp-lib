@@ -79,3 +79,53 @@ async def test_middleware_stack_no_middleware():
 
     result = await wrapped.fetch()
     assert result == "test"
+
+
+@pytest.mark.asyncio
+async def test_retry_backoff_with_base_less_than_one(monkeypatch):
+    """Backoff should scale by powers of two when base < 1."""
+
+    delays: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:  # pragma: no cover - simple stub
+        delays.append(delay)
+
+    monkeypatch.setattr("asyncio.sleep", fake_sleep)
+
+    transport = FailingTransport(fail_count=2, response=b"ok")
+    upstream = BaseUpstream(
+        transport=transport, decoder=lambda b: b.decode("utf-8"), endpoint="test"
+    )
+
+    middleware = MiddlewareStack(RetryMiddleware(max_attempts=3, backoff_base=0.5))
+    wrapped = middleware.wrap(upstream)
+
+    result = await wrapped.fetch()
+
+    assert result == "ok"
+    assert delays == [0.5, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_retry_backoff_with_base_greater_than_one(monkeypatch):
+    """Backoff should scale by powers of two when base > 1."""
+
+    delays: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:  # pragma: no cover - simple stub
+        delays.append(delay)
+
+    monkeypatch.setattr("asyncio.sleep", fake_sleep)
+
+    transport = FailingTransport(fail_count=2, response=b"ok")
+    upstream = BaseUpstream(
+        transport=transport, decoder=lambda b: b.decode("utf-8"), endpoint="test"
+    )
+
+    middleware = MiddlewareStack(RetryMiddleware(max_attempts=3, backoff_base=1.5))
+    wrapped = middleware.wrap(upstream)
+
+    result = await wrapped.fetch()
+
+    assert result == "ok"
+    assert delays == [1.5, 3.0]
