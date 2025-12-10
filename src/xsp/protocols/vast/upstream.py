@@ -4,6 +4,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from xsp.core.base import BaseUpstream
+from xsp.core.configurable import configurable
 from xsp.core.transport import Transport
 
 from .macros import MacroSubstitutor
@@ -11,6 +12,7 @@ from .types import VastVersion
 from .validation import validate_vast_xml
 
 
+@configurable(namespace="vast", description="VAST protocol upstream for video ad serving")
 class VastUpstream(BaseUpstream[str]):
     """
     VAST upstream for video ad serving.
