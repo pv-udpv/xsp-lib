@@ -1,8 +1,10 @@
 """Generate configuration templates from @configurable registry."""
 
 import enum
+import tomllib
 from collections import defaultdict
-from typing import Any
+
+import tomlkit
 
 from .configurable import ConfigMetadata, get_configurable_registry
 
@@ -11,15 +13,19 @@ class ConfigGenerator:
     """Generate configuration files from @configurable registry."""
 
     @staticmethod
-    def generate_toml(group_by: str = "namespace") -> str:
+    def generate_toml(group_by: str = "namespace", validate: bool = True) -> str:
         """
         Generate TOML configuration template.
 
         Args:
             group_by: Grouping strategy ("namespace" or "class")
+            validate: Validate generated TOML (default: True)
 
         Returns:
             TOML configuration string
+
+        Raises:
+            ValueError: If group_by is invalid or generated TOML is invalid
         """
         registry = get_configurable_registry()
 
@@ -30,42 +36,57 @@ class ConfigGenerator:
         else:
             raise ValueError(f"Unknown group_by: {group_by}")
 
-        lines = [
-            "# XSP-lib Configuration Template",
-            "# Auto-generated from @configurable registry",
-            "#",
-            "# This file contains all configurable parameters from xsp-lib.",
-            "# Uncomment and modify values as needed.",
-            "",
-        ]
+        # Create TOML document using tomlkit
+        doc = tomlkit.document()
+        doc.add(tomlkit.comment("XSP-lib Configuration Template"))
+        doc.add(tomlkit.comment("Auto-generated from @configurable registry"))
+        doc.add(tomlkit.comment(""))
+        doc.add(tomlkit.comment("This file contains all configurable parameters from xsp-lib."))
+        doc.add(tomlkit.comment("Uncomment and modify values as needed."))
+        doc.add(tomlkit.nl())
 
         for section, metadata_list in sorted(grouped.items()):
-            lines.append(f"[{section}]")
+            # Create section table
+            section_table = tomlkit.table()
 
             for metadata in metadata_list:
                 if metadata.description:
-                    lines.append(f"# {metadata.description}")
+                    section_table.add(tomlkit.comment(metadata.description))
 
-                lines.append(f"# Source: {metadata.cls.__name__}")
-                lines.append("")
+                section_table.add(tomlkit.comment(f"Source: {metadata.cls.__name__}"))
+                section_table.add(tomlkit.nl())
 
                 for param_name, param_info in metadata.parameters.items():
                     # Add parameter description
                     if param_info.description:
-                        lines.append(f"# {param_info.description}")
+                        section_table.add(tomlkit.comment(param_info.description))
 
                     # Add type hint as comment
                     type_str = ConfigGenerator._format_type(param_info.type)
-                    lines.append(f"# Type: {type_str}")
+                    section_table.add(tomlkit.comment(f"Type: {type_str}"))
 
                     # Add parameter with default value
-                    value_str = ConfigGenerator._format_toml_value(param_info.default)
-                    lines.append(f"{param_name} = {value_str}")
-                    lines.append("")
+                    # Convert enum values to their string representation
+                    value = param_info.default
+                    if isinstance(value, enum.Enum):
+                        value = value.value
+                    # Handle None values - represent as empty string in TOML
+                    elif value is None:
+                        value = ""
 
-            lines.append("")  # Extra blank line between sections
+                    section_table[param_name] = value
+                    section_table.add(tomlkit.nl())
 
-        return "\n".join(lines)
+            doc[section] = section_table
+            doc.add(tomlkit.nl())
+
+        toml_str = tomlkit.dumps(doc)
+
+        # Validate if requested
+        if validate:
+            ConfigGenerator._validate_toml(toml_str)
+
+        return toml_str
 
     @staticmethod
     def generate_yaml(group_by: str = "namespace") -> str:
@@ -74,9 +95,7 @@ class ConfigGenerator:
         raise NotImplementedError("YAML generation coming in future PR")
 
     @staticmethod
-    def _group_by_namespace(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
+    def _group_by_namespace(registry: dict[str, ConfigMetadata]) -> dict[str, list[ConfigMetadata]]:
         """Group metadata by namespace."""
         grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
 
@@ -86,9 +105,7 @@ class ConfigGenerator:
         return grouped
 
     @staticmethod
-    def _group_by_class(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
+    def _group_by_class(registry: dict[str, ConfigMetadata]) -> dict[str, list[ConfigMetadata]]:
         """Group metadata by class name (lowercased)."""
         grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
 
@@ -110,28 +127,17 @@ class ConfigGenerator:
         return str(type_hint)
 
     @staticmethod
-    def _format_toml_value(value: Any) -> str:
-        """Format Python value as TOML."""
-        if value is None:
-            # Note: None is represented as empty string in TOML.
-            # In practice, configurable parameters should have meaningful defaults.
-            return '""'
-        elif isinstance(value, bool):
-            return str(value).lower()
-        elif isinstance(value, enum.Enum):
-            return f'"{value.value}"'
-        elif isinstance(value, str):
-            return f'"{value}"'
-        elif isinstance(value, (int, float)):
-            return str(value)
-        elif isinstance(value, (list, tuple)):
-            items = [ConfigGenerator._format_toml_value(item) for item in value]
-            return f"[{', '.join(items)}]"
-        elif isinstance(value, dict):
-            # Inline table format
-            items = [
-                f"{k} = {ConfigGenerator._format_toml_value(v)}" for k, v in value.items()
-            ]
-            return f"{{ {', '.join(items)} }}"
-        else:
-            return f'"{value}"'
+    def _validate_toml(toml_str: str) -> None:
+        """
+        Validate TOML syntax.
+
+        Args:
+            toml_str: TOML string to validate
+
+        Raises:
+            ValueError: If TOML is invalid
+        """
+        try:
+            tomllib.loads(toml_str)
+        except Exception as e:
+            raise ValueError(f"Generated TOML is invalid: {e}\n\n{toml_str}") from e

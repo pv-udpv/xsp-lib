@@ -1,5 +1,6 @@
 """VAST protocol implementation."""
 
+from xsp.protocols.vast.handler import VastProtocolHandler
 from xsp.protocols.vast.chain import (
     ResolutionStrategy,
     SelectionStrategy,
@@ -18,6 +19,7 @@ from xsp.protocols.vast.upstream import VastUpstream, VmapUpstream
 from xsp.protocols.vast.validation import VastValidationError, validate_vast_xml
 
 __all__ = [
+    "VastProtocolHandler",
     "MacroSubstitutor",
     "MediaType",
     "ResolutionStrategy",
