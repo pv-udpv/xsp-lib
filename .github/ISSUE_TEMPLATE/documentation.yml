@@ -1,0 +1,122 @@
+name: 📝 Documentation
+description: Report missing, incorrect, or unclear documentation
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the documentation! Report issues with docs, guides, or examples.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation is affected?
+      options:
+        - API Documentation (docstrings)
+        - README
+        - Tutorial / Guide
+        - Example Code
+        - Architecture Documentation
+        - CHANGELOG
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: Where is the documentation issue located?
+      placeholder: |
+        - File: docs/guides/getting-started.md
+        - Section: "Installation"
+        - Line: 45
+        - URL: https://xsp-lib.readthedocs.io/...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing Documentation
+        - Incorrect Information
+        - Unclear / Confusing
+        - Outdated
+        - Typo / Grammar
+        - Broken Link
+        - Missing Example
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Documentation
+      description: What does the current documentation say? (if applicable)
+      placeholder: Quote the current text or describe what's missing
+    validations:
+      required: false
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested Improvement
+      description: What should the documentation say instead?
+      placeholder: Provide the corrected text or describe what should be added
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Proposed Example
+      description: If this is about code examples, provide a better example
+      placeholder: |
+        ```python
+        # Better example:
+        from xsp.protocols.vast import VastUpstream
+        
+        upstream = VastUpstream(...)
+        ```
+      render: python
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Impact
+      description: How much does this affect users?
+      options:
+        - Critical (blocks understanding)
+        - High (causes confusion)
+        - Medium (minor issue)
+        - Low (cosmetic)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Can you help fix this?
+      options:
+        - label: I can submit a PR to fix this
+          required: false
+        - label: I can provide more examples
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information about this documentation issue
+    validations:
+      required: false

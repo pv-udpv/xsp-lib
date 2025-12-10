@@ -1,0 +1,209 @@
+name: 🤖 Copilot Task
+description: Well-defined task for GitHub Copilot coding agent
+title: "📋 [Scope]: Brief description"
+labels: ["copilot-task", "needs-triage"]
+assignees: ["copilot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This template is optimized for GitHub Copilot coding agent.**
+        
+        Provide clear, specific requirements with acceptance criteria. The more detail you provide, the better Copilot can help.
+        
+        💡 **Naming Convention:**
+        - Standalone task: `📋 [VAST]: Implement wrapper resolution`
+        - Child task: `└─ [VAST]: Implement wrapper resolution (#5)`
+        - See [NAMING_CONVENTIONS.md](../.github/NAMING_CONVENTIONS.md) for details
+        
+        💡 **Tip:** Be specific about:
+        - What needs to be done
+        - Which files to modify
+        - Expected behavior
+        - Quality requirements (tests, type hints, docs)
+
+  - type: input
+    id: parent-issue
+    attributes:
+      label: Parent Issue (if applicable)
+      description: If this is a subtask of a larger issue/epic, enter the parent issue number
+      placeholder: "#5"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Clear description of what needs to be done
+      placeholder: Implement VAST wrapper resolution with max depth tracking per VAST 4.2 spec section 2.4.3.4
+    validations:
+      required: true
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task Type
+      description: What kind of task is this?
+      options:
+        - Bug Fix
+        - New Feature
+        - Protocol Implementation
+        - Refactoring
+        - Testing
+        - Documentation
+        - Performance Optimization
+        - Code Quality
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Complexity
+      description: How complex is this task?
+      options:
+        - Simple (< 1 hour, single file)
+        - Medium (1-4 hours, few files)
+        - Complex (> 4 hours, multiple files)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific criteria that must be met for this task to be complete
+      placeholder: |
+        - [ ] VastUpstream has max_wrapper_depth parameter (default 5)
+        - [ ] Wrapper resolution tracks current depth
+        - [ ] Raises VastError when max depth exceeded
+        - [ ] Tests cover depth tracking and error cases
+        - [ ] Type hints added for all new code
+        - [ ] Docstrings reference VAST 4.2 §2.4.3.4
+      value: |
+        - [ ] 
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: files-affected
+    attributes:
+      label: Files to Create/Modify
+      description: List the specific files that need to be created or modified
+      placeholder: |
+        - src/xsp/protocols/vast/upstream.py (modify)
+        - src/xsp/protocols/vast/types.py (modify)
+        - tests/unit/protocols/test_vast_wrapper.py (create)
+      value: |
+        - 
+        - 
+    validations:
+      required: false
+
+  - type: textarea
+    id: spec-reference
+    attributes:
+      label: Specification Reference
+      description: Links to relevant specifications (IAB, RFC, etc.)
+      placeholder: |
+        - VAST 4.2 Spec: https://iabtechlab.com/standards/vast/
+        - Section 2.4.3.4: Wrapper Resolution
+    validations:
+      required: false
+
+  - type: textarea
+    id: example-usage
+    attributes:
+      label: Expected Usage / Behavior
+      description: Show how the feature should work when complete
+      placeholder: |
+        ```python
+        from xsp.protocols.vast import VastUpstream
+        
+        upstream = VastUpstream(
+            endpoint="https://ad-server.com/wrapper",
+            max_wrapper_depth=3  # New parameter
+        )
+        
+        # Should resolve up to 3 levels of wrappers
+        vast_response = await upstream.fetch()
+        
+        # Should raise VastError if depth > 3
+        ```
+      render: python
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: quality-requirements
+    attributes:
+      label: Quality Requirements
+      description: Select all that apply
+      options:
+        - label: Unit tests required
+          required: false
+        - label: Integration tests required
+          required: false
+        - label: Type hints required (mypy --strict)
+          required: false
+        - label: Docstrings required
+          required: false
+        - label: Documentation update required
+          required: false
+        - label: CHANGELOG update required
+          required: false
+
+  - type: dropdown
+    id: delegate-to
+    attributes:
+      label: Delegate To (optional)
+      description: Should this be delegated to a specific agent?
+      options:
+        - "@copilot (general)"
+        - "@orchestrator (planning/coordination)"
+        - "@developer (code implementation)"
+        - "@tester (testing)"
+        - "@doc-writer (documentation)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints / Requirements
+      description: Any specific constraints or requirements
+      placeholder: |
+        - Must maintain backward compatibility
+        - Should not modify existing test fixtures
+        - Performance: must process in < 100ms
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Background information, related issues, or other helpful context
+      placeholder: |
+        Related to issue #123
+        This is needed for compliance with VAST 4.2
+        Current implementation in src/xsp/protocols/vast/upstream.py:45-67
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this task?
+      options:
+        - Critical (blocking)
+        - High (important)
+        - Medium (normal)
+        - Low (nice to have)
+    validations:
+      required: false

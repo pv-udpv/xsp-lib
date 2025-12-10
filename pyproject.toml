@@ -46,7 +46,7 @@ openrtb = ["orjson>=3.9.0"]  # Issue pv-udpv/xsp-lib#3
 daast = ["lxml>=5.0.0"]  # Issue pv-udpv/xsp-lib#4
 
 # Standards and schemas (future)
-schemas = ["jsonschema>=4.20.0", "pydantic>=2.5.0"]
+schemas = ["jsonschema>=4.20.0", "pydantic>=2.5.0", "pydantic-settings>=2.2.0"]
 
 # Full install
 all = ["xsp-lib[http,grpc,websocket,vast,openrtb,daast,schemas]"]
@@ -59,7 +59,6 @@ dev = [
     "pytest-timeout>=2.2.0",
     "mypy>=1.7.0",
     "ruff>=0.1.6",
-    "black>=23.11.0",
 ]
 
 [project.urls]
@@ -67,6 +66,9 @@ Homepage = "https://github.com/pv-udpv/xsp-lib"
 Documentation = "https://xsp-lib.readthedocs.io"
 Repository = "https://github.com/pv-udpv/xsp-lib"
 Issues = "https://github.com/pv-udpv/xsp-lib/issues"
+
+[project.scripts]
+xsp-generate-config = "xsp.cli.generate_config:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -89,6 +91,6 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = []
 
-[tool.black]
-line-length = 100
-target-version = ["py311"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

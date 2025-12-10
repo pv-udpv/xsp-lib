@@ -1,0 +1,145 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for xsp-lib
+title: "✨ [Scope]: Brief description"
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please fill out the form below to help us understand your idea.
+        
+        💡 **Naming Convention:**
+        - Standalone: `✨ [OpenRTB]: Add bid validation`
+        - Child feature: `└─ [OpenRTB]: Add bid validation (#10)`
+        - See [NAMING_CONVENTIONS.md](../.github/NAMING_CONVENTIONS.md)
+
+  - type: input
+    id: parent-issue
+    attributes:
+      label: Parent Issue (if applicable)
+      description: If this is part of a larger epic or initiative, enter the parent issue number
+      placeholder: "#10"
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is your feature request related to a problem?
+      placeholder: I'm always frustrated when... / It would be helpful to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: Add support for... / Implement a new upstream that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: I tried using... but it doesn't work because...
+    validations:
+      required: false
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Usage
+      description: Show how you would use this feature in code
+      placeholder: |
+        ```python
+        from xsp.protocols.new_protocol import NewUpstream
+        
+        upstream = NewUpstream(endpoint="...")
+        result = await upstream.fetch()
+        ```
+      render: python
+    validations:
+      required: false
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Related Protocol
+      description: Which protocol or area does this feature relate to?
+      options:
+        - Core (BaseUpstream, Transport)
+        - VAST
+        - OpenRTB
+        - DAAST
+        - CATS
+        - New Protocol
+        - Middleware
+        - Testing/Utilities
+        - Documentation
+        - Other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Simple (few lines, minor addition)
+        - Medium (new module, moderate changes)
+        - Complex (major feature, significant work)
+        - Unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: spec-reference
+    attributes:
+      label: Specification Reference
+      description: If this relates to an IAB or other specification, provide links
+      placeholder: |
+        - VAST 4.2 Spec: https://iabtechlab.com/standards/vast/
+        - OpenRTB 2.6 Spec: https://iabtechlab.com/standards/openrtb/
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (blocking my work)
+        - High (very important)
+        - Medium (would be nice to have)
+        - Low (minor improvement)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to contribute to this feature?
+      options:
+        - label: I would like to implement this feature myself
+          required: false
+        - label: I can help with testing
+          required: false
+        - label: I can help with documentation
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request
+      placeholder: This would help with...
+    validations:
+      required: false

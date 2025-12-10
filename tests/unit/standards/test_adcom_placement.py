@@ -1,11 +1,9 @@
 """Tests for AdCOM placement objects."""
 
 import pytest
-from pydantic import ValidationError
 
 from xsp.standards.adcom.enums import (
     AdPosition,
-    ApiFramework,
     EventTrackingMethod,
     EventType,
     LinearityMode,
@@ -25,7 +23,6 @@ from xsp.standards.adcom.placement import (
     NativeFormat,
     Placement,
     TitleAssetFormat,
-    VideoAssetFormat,
     VideoPlacement,
 )
 

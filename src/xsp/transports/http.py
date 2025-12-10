@@ -2,27 +2,23 @@
 
 from typing import Any
 
-try:
-    import httpx
-except ImportError:
-    httpx = None  # type: ignore
-
-from xsp.core.transport import TransportType
 from xsp.core.exceptions import (
+    TransportConnectionError,
     TransportError,
     TransportTimeoutError,
-    TransportConnectionError,
 )
+from xsp.core.transport import TransportType
+
+import httpx
 
 
 class HttpTransport:
-    """HTTP/HTTPS transport for REST APIs with connection pooling."""
+    """HTTP/HTTPS transport for REST APIs."""
 
     def __init__(
         self,
-        client: Any | None = None,
+        client: httpx.AsyncClient | None = None,
         method: str = "GET",
-        *,
         max_connections: int = 100,
         max_keepalive_connections: int = 20,
         keepalive_expiry: float = 30.0,
@@ -31,27 +27,21 @@ class HttpTransport:
         verify_ssl: bool = True,
     ):
         """
-        Initialize HTTP transport with connection pooling.
+        Initialize HTTP transport.
 
         Args:
-            client: Optional httpx.AsyncClient instance (if provided, pool settings ignored)
-            method: Default HTTP method (GET, POST, etc.)
-            max_connections: Maximum number of concurrent connections
-            max_keepalive_connections: Maximum number of idle connections to keep
-            keepalive_expiry: Time in seconds to keep idle connections alive
+            client: Optional httpx.AsyncClient instance
+            method: HTTP method (GET, POST, etc.)
+            max_connections: Maximum number of connections in pool
+            max_keepalive_connections: Maximum number of keepalive connections
+            keepalive_expiry: Time in seconds before keepalive connections expire
             timeout: Default request timeout in seconds
-            follow_redirects: Whether to follow HTTP redirects
+            follow_redirects: Whether to follow redirects
             verify_ssl: Whether to verify SSL certificates
 
         Raises:
             ImportError: If httpx is not installed
         """
-        if httpx is None:
-            raise ImportError(
-                "httpx is required for HTTP transport. "
-                "Install it with: pip install xsp-lib[http]"
-            )
-
         if client is None:
             limits = httpx.Limits(
                 max_connections=max_connections,
@@ -60,17 +50,15 @@ class HttpTransport:
             )
             self.client = httpx.AsyncClient(
                 limits=limits,
-                timeout=httpx.Timeout(timeout),
                 follow_redirects=follow_redirects,
                 verify=verify_ssl,
             )
-            self._owns_client = True
         else:
             self.client = client
-            self._owns_client = False
 
         self.method = method.upper()
         self.default_timeout = timeout
+        self._owns_client = client is None
 
     @property
     def transport_type(self) -> TransportType:
@@ -85,21 +73,16 @@ class HttpTransport:
         timeout: float | None = None,
     ) -> bytes:
         """
-        Send HTTP request with error handling.
+        Send HTTP request.
 
         Args:
             endpoint: URL to request
             payload: Optional request body
             metadata: Headers and parameters (params in "_params" key)
-            timeout: Request timeout (overrides default)
+            timeout: Request timeout
 
         Returns:
             Response body as bytes
-
-        Raises:
-            TransportTimeoutError: Request timed out
-            TransportConnectionError: Connection failed
-            TransportError: HTTP error or other transport issue
         """
         headers = metadata.copy() if metadata else {}
 
@@ -129,33 +112,26 @@ class HttpTransport:
 
         if timeout is not None:
             request_args["timeout"] = timeout
-        elif self.default_timeout is not None:
+        else:
             request_args["timeout"] = self.default_timeout
 
         # Send request with error handling
         try:
             response = await self.client.request(**request_args)
             response.raise_for_status()
-            return response.content
-
         except httpx.TimeoutException as e:
-            raise TransportTimeoutError(
-                f"Request timeout after {timeout or self.default_timeout}s: {endpoint}"
-            ) from e
-
+            raise TransportTimeoutError(f"Request timed out: {endpoint}") from e
         except (httpx.ConnectError, httpx.NetworkError) as e:
-            raise TransportConnectionError(
-                f"Connection failed: {endpoint}"
-            ) from e
-
+            raise TransportConnectionError(f"Connection failed: {endpoint}") from e
         except httpx.HTTPStatusError as e:
             raise TransportError(
-                f"HTTP {e.response.status_code} error: {endpoint}",
+                f"HTTP error {e.response.status_code}: {endpoint}",
                 status_code=e.response.status_code,
             ) from e
-
         except Exception as e:
             raise TransportError(f"Transport error: {endpoint}") from e
+
+        return response.content
 
     async def close(self) -> None:
         """Close HTTP client if owned."""

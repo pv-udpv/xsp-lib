@@ -1,18 +1,16 @@
-"""IAB macro substitution for VAST URLs."""
+"""IAB standard macro substitution for VAST URLs."""
 
-import time
 import random
-from typing import Callable
-from urllib.parse import quote
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from urllib.parse import quote
 
 from .types import VastVersion
 
 
 @dataclass
 class MacroDefinition:
-    """VAST macro definition with version info."""
-
     name: str
     provider: Callable[[], str] | None
     intro_version: VastVersion
@@ -24,14 +22,16 @@ class MacroSubstitutor:
     """
     IAB standard macro substitution for VAST URLs.
 
-    Supports:
-    - Built-in macros: [TIMESTAMP], [CACHEBUSTING]
-    - Context macros: [CONTENTPLAYHEAD], [ASSETURI], [ERRORCODE]
-    - Version filtering: only macros compatible with current VAST version
-    - SSAI mode: only SSAI-recommended macros
+    Supports built-in macros:
+    - [TIMESTAMP] - Unix timestamp in milliseconds
+    - [CACHEBUSTING] - Random 9-digit number
+    - [CONTENTPLAYHEAD] - Video playback position (from context)
+    - [ASSETURI] - Creative asset URI (from context)
+    - [ERRORCODE] - VAST error code (from context)
+
+    Plus custom macros via registration.
     """
 
-    # Macro registry with version info
     MACRO_REGISTRY: dict[str, MacroDefinition] = {
         "TIMESTAMP": MacroDefinition(
             name="TIMESTAMP",
@@ -47,70 +47,68 @@ class MacroSubstitutor:
         ),
         "CONTENTPLAYHEAD": MacroDefinition(
             name="CONTENTPLAYHEAD",
-            provider=None,  # Context-based
+            provider=None,
             intro_version=VastVersion.V3_0,
             ssai_recommended=True,
         ),
         "SERVERUA": MacroDefinition(
             name="SERVERUA",
-            provider=None,  # Context-based
-            intro_version=VastVersion.V4_1,
+            provider=None,
+            intro_version=VastVersion.V4_0,
             ssai_recommended=True,
-        ),
-        "ASSETURI": MacroDefinition(
-            name="ASSETURI",
-            provider=None,  # Context-based
-            intro_version=VastVersion.V2_0,
-            ssai_recommended=False,
-        ),
-        "ERRORCODE": MacroDefinition(
-            name="ERRORCODE",
-            provider=None,  # Context-based
-            intro_version=VastVersion.V2_0,
-            ssai_recommended=False,
         ),
     }
 
     def __init__(
-        self,
-        version: VastVersion = VastVersion.V4_2,
-        ssai_mode: bool = False,
-    ):
-        """
-        Initialize macro substitutor.
-
-        Args:
-            version: VAST version to filter macros by
-            ssai_mode: If True, only use SSAI-recommended macros
-        """
+        self, version: VastVersion = VastVersion.V4_2, ssai_mode: bool = False
+    ) -> None:
+        """Initialize with built-in macro providers."""
         self.version = version
         self.ssai_mode = ssai_mode
-        self.custom_providers: dict[str, Callable[[], str]] = {}
+        self.providers: dict[str, Callable[[], str]] = {}
+
+        # Register built-in macros that are compatible with version
+        for macro_name, macro_def in self.MACRO_REGISTRY.items():
+            if macro_def.provider and self._is_macro_compatible(macro_def):
+                self.providers[macro_name] = macro_def.provider
+
+    def _is_macro_compatible(self, macro_def: MacroDefinition) -> bool:
+        """
+        Check if macro is compatible with current version and SSAI mode.
+
+        Args:
+            macro_def: Macro definition to check
+
+        Returns:
+            True if macro is compatible
+        """
+        # Check version compatibility
+        if macro_def.intro_version.value > self.version.value:
+            return False
+
+        if macro_def.deprec_version and macro_def.deprec_version.value <= self.version.value:
+            return False
+
+        # Check SSAI mode compatibility
+        if self.ssai_mode and not macro_def.ssai_recommended:
+            return False
+
+        return True
 
     def register(
-        self,
-        macro: str,
-        provider: Callable[[], str],
-        ssai_recommended: bool = False,
+        self, macro: str, provider: Callable[[], str], ssai_recommended: bool = False
     ) -> None:
         """
         Register custom macro provider.
 
         Args:
-            macro: Macro name (without brackets)
+            macro: Macro name (without brackets, e.g., "CUSTOM")
             provider: Function returning macro value
-            ssai_recommended: Whether macro is SSAI-recommended
+            ssai_recommended: Whether macro is recommended for SSAI mode
         """
-        if self.ssai_mode and not ssai_recommended:
-            return  # Skip non-SSAI macros in SSAI mode
+        self.providers[macro.upper()] = provider
 
-        self.custom_providers[macro.upper()] = provider
-
-    def substitute(
-        self,
-        url: str,
-        context: dict[str, str] | None = None,
-    ) -> str:
+    def substitute(self, url: str, context: dict[str, str] | None = None) -> str:
         """
         Substitute macros in URL.
 
@@ -123,70 +121,26 @@ class MacroSubstitutor:
         """
         result = url
 
-        # Built-in macros from registry
-        for macro_def in self.MACRO_REGISTRY.values():
-            # Version filtering
-            if not self._is_macro_compatible(macro_def):
-                continue
-
-            # SSAI filtering
-            if self.ssai_mode and not macro_def.ssai_recommended:
-                continue
-
-            pattern = f"[{macro_def.name}]"
-            if pattern in result:
-                if macro_def.provider:
-                    value = macro_def.provider()
-                    result = result.replace(pattern, quote(value, safe=""))
-                elif context and macro_def.name.lower() in context:
-                    value = str(context[macro_def.name.lower()])
-                    result = result.replace(pattern, quote(value, safe=""))
-
-        # Custom macros
-        for macro, provider in self.custom_providers.items():
+        # Built-in macros (filtered by version and SSAI mode)
+        for macro, provider in self.providers.items():
             pattern = f"[{macro}]"
             if pattern in result:
                 value = provider()
-                result = result.replace(pattern, quote(value, safe=""))
+                # Use safe chars appropriate for query params
+                result = result.replace(pattern, quote(value, safe="-_.~"))
 
-        # Context macros (fallback for non-registered)
+        # Context macros (with version filtering)
         if context:
             for key, value in context.items():
-                pattern = f"[{key.upper()}]"
+                macro_name = key.upper()
+                pattern = f"[{macro_name}]"
                 if pattern in result:
-                    result = result.replace(pattern, quote(str(value), safe=""))
+                    # Check if this is a known macro that needs version filtering
+                    if macro_name in self.MACRO_REGISTRY:
+                        macro_def = self.MACRO_REGISTRY[macro_name]
+                        if not self._is_macro_compatible(macro_def):
+                            continue
+                    # Use safe chars appropriate for query params
+                    result = result.replace(pattern, quote(str(value), safe="-_.~"))
 
         return result
-
-    def _is_macro_compatible(self, macro_def: MacroDefinition) -> bool:
-        """
-        Check if macro is compatible with current VAST version.
-
-        Args:
-            macro_def: Macro definition
-
-        Returns:
-            True if macro can be used with current version
-        """
-        # Check introduction version
-        version_order = [
-            VastVersion.V2_0,
-            VastVersion.V3_0,
-            VastVersion.V4_0,
-            VastVersion.V4_1,
-            VastVersion.V4_2,
-        ]
-
-        current_idx = version_order.index(self.version)
-        intro_idx = version_order.index(macro_def.intro_version)
-
-        if intro_idx > current_idx:
-            return False  # Macro not yet introduced
-
-        # Check deprecation
-        if macro_def.deprec_version:
-            deprec_idx = version_order.index(macro_def.deprec_version)
-            if deprec_idx <= current_idx:
-                return False  # Macro deprecated
-
-        return True
