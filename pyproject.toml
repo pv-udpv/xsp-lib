@@ -1,96 +1,28 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/xsp"]
-
-[project]
+[tool.poetry]
 name = "xsp-lib"
 version = "0.1.0"
-description = "Universal AdTech service protocol library - VAST, OpenRTB, DAAST, CATS upstreams with pluggable transports and middleware; Industry specs and standards implementations"
+description = "Exchange Protocols Library"
+authors = ["AdTech Team"]
 readme = "README.md"
-requires-python = ">=3.11"
-license = {text = "MIT"}
-keywords = [
-    "adtech", "programmatic", "advertising",
-    "vast", "openrtb", "daast", "cats",
-    "vpaid", "vmap", "opendirect", "adcom",
-    "dsp", "ssp", "upstream", "protocol"
-]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Internet :: WWW/HTTP",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Typing :: Typed",
-]
 
-dependencies = [
-    "typing-extensions>=4.8.0",
-]
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = "^3.8.0"
+lxml = "^4.9.0"
+pydantic = "^2.0.0"
+pyyaml = "^6.0"
 
-[project.optional-dependencies]
-# Transport backends
-http = ["httpx>=0.25.0"]
-grpc = ["grpcio>=1.59.0", "protobuf>=4.25.0"]
-websocket = ["websockets>=12.0"]
-
-# Protocol implementations (added incrementally)
-vast = ["lxml>=5.0.0"]  # Issue pv-udpv/xsp-lib#2
-openrtb = ["orjson>=3.9.0"]  # Issue pv-udpv/xsp-lib#3
-daast = ["lxml>=5.0.0"]  # Issue pv-udpv/xsp-lib#4
-
-# Standards and schemas (future)
-schemas = ["jsonschema>=4.20.0", "pydantic>=2.5.0", "pydantic-settings>=2.2.0"]
-
-# Full install
-all = ["xsp-lib[http,grpc,websocket,vast,openrtb,daast,schemas]"]
-
-# Development
-dev = [
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.1.0",
-    "pytest-timeout>=2.2.0",
-    "mypy>=1.7.0",
-    "ruff>=0.1.6",
-]
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+pytest-asyncio = "^0.20.0"
+mypy = "^1.7.0"
+ruff = "^0.1.6"
+black = "^23.11.0"
+lxml-stubs = "^0.5.1"
 
 [project.urls]
 Homepage = "https://github.com/pv-udpv/xsp-lib"
-Documentation = "https://xsp-lib.readthedocs.io"
-Repository = "https://github.com/pv-udpv/xsp-lib"
-Issues = "https://github.com/pv-udpv/xsp-lib/issues"
 
-[project.scripts]
-xsp-generate-config = "xsp.cli.generate_config:main"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-asyncio_mode = "auto"
-timeout = 300
-addopts = "-v --cov=xsp --cov-report=term-missing -m 'not network'"
-markers = [
-    "network: tests that require network access (deselect with '-m \"not network\"')",
-]
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = []
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
