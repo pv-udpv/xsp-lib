@@ -40,7 +40,7 @@ class XspSettings(BaseSettings):
 
     # OpenRTB protocol
     openrtb_endpoint: str = "https://bidder.example.com/openrtb"
-    openrtb_timeout: float = 100.0
+    openrtb_timeout: float = 0.3  # per OpenRTB 2.6 §4.1: typical timeout 100-300ms
     openrtb_secret_key: SecretStr | None = Field(
         default=None,
         description="OpenRTB upstream secret key",
