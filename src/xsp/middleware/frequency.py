@@ -222,9 +222,9 @@ class InMemoryFrequencyStore:
                 }
                 return 1
 
-            # Increment existing non-expired entry
+            # Increment existing non-expired entry (fixed window - TTL not reset)
             entry["count"] += 1
-            entry["expires_at"] = now + ttl  # Reset TTL on each impression
+            # Note: TTL is NOT reset to maintain sliding window behavior
             return int(entry["count"])
 
     async def reset(self, key: str) -> None:

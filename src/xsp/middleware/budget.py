@@ -617,8 +617,13 @@ class BudgetTrackingMiddleware:
                 f"(spent: {budget.spent}/{budget.total_budget})"
             )
 
-        # Update spent amount (optimistic - before request)
-        await self.store.update_spent(key, cost)
+        # Pass to next handler first
+        try:
+            result = await next_handler(**kwargs)
+        except Exception:
+            # Don't update budget if request failed
+            raise
 
-        # Pass to next handler
-        return await next_handler(**kwargs)
+        # Update spent amount only after successful request
+        await self.store.update_spent(key, cost)
+        return result
