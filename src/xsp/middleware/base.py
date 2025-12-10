@@ -45,20 +45,21 @@ class MiddlewareWrappedUpstream:
     async def fetch(self, **kwargs: Any) -> Any:
         """Fetch through middleware chain."""
 
-        async def create_handler(index: int) -> Any:
+        async def create_handler(index: int, current_kwargs: dict[str, Any]) -> Any:
             if index >= len(self._middleware):
                 # End of chain, call actual upstream
-                return await self._upstream.fetch(**kwargs)
+                return await self._upstream.fetch(**current_kwargs)
 
             middleware = self._middleware[index]
 
             async def next_handler(**inner_kwargs: Any) -> Any:
-                # Continue chain
-                return await create_handler(index + 1)
+                # Continue chain with merged kwargs
+                merged_kwargs = {**current_kwargs, **inner_kwargs}
+                return await create_handler(index + 1, merged_kwargs)
 
-            return await middleware(self._upstream, next_handler, **kwargs)
+            return await middleware(self._upstream, next_handler, **current_kwargs)
 
-        return await create_handler(0)
+        return await create_handler(0, dict(kwargs))
 
     async def close(self) -> None:
         """Close underlying upstream."""
