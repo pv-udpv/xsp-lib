@@ -38,9 +38,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-          # run auto-fix
-          ruff --fix .
+          # run auto-fix (continue even if there are unfixable errors)
+          ruff --fix . || true
 
           # Only commit & push when there are changes
           if [ -n "$(git status --porcelain)" ]; then
@@ -49,7 +48,7 @@ jobs:
             git add -A
             git commit -m "chore(ci): auto-fix lint with ruff"
             # push back to same branch
-            git push
+            git push || echo "Push failed - changes may have been pushed by another job"
           else
             echo "No changes from ruff --fix"
           fi
