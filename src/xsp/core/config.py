@@ -1,9 +1,102 @@
 from __future__ import annotations
 
-from typing import Literal
+from dataclasses import dataclass, field, replace
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+@dataclass
+class UpstreamConfig:
+    """
+    Transport-agnostic upstream configuration.
+
+    Separates configuration from transport implementation,
+    enabling easy switching between HTTP/gRPC/WebSocket/file transports.
+
+    Attributes:
+        endpoint: Upstream service URL or path
+        params: Default query parameters
+        headers: Default HTTP headers
+        encoding_config: Parameter encoding rules (e.g., preserve Cyrillic)
+        timeout: Request timeout in seconds
+        max_retries: Maximum retry attempts
+
+    Example:
+        ```python
+        # VAST upstream config
+        config = UpstreamConfig(
+            endpoint="https://ads.example.com/vast",
+            params={"publisher_id": "pub123"},
+            headers={"User-Agent": "xsp-lib/1.0"},
+            encoding_config={"url": False},  # Preserve Cyrillic in URL
+            timeout=30.0,
+            max_retries=3
+        )
+
+        # Use with different transports
+        http_upstream = VastUpstream(
+            transport=HttpTransport(),
+            config=config
+        )
+
+        # Or file-based for testing
+        file_upstream = VastUpstream(
+            transport=FileTransport(),
+            config=config.replace(endpoint="/path/to/vast.xml")
+        )
+        ```
+    """
+
+    endpoint: str
+    params: dict[str, Any] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    encoding_config: dict[str, bool] = field(default_factory=dict)
+    timeout: float = 30.0
+    max_retries: int = 3
+
+    def replace(self, **kwargs: Any) -> "UpstreamConfig":
+        """
+        Create new config with updated fields.
+
+        Example:
+            ```python
+            prod_config = base_config.replace(
+                endpoint="https://prod.example.com/vast",
+                timeout=60.0
+            )
+            ```
+        """
+        return replace(self, **kwargs)
+
+    def merge_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        """
+        Merge request params with defaults.
+
+        Request params override config params.
+
+        Args:
+            params: Request-specific parameters
+
+        Returns:
+            Merged parameters
+        """
+        return {**self.params, **params}
+
+    def merge_headers(self, headers: dict[str, str]) -> dict[str, str]:
+        """
+        Merge request headers with defaults.
+
+        Request headers override config headers.
+
+        Args:
+            headers: Request-specific headers
+
+        Returns:
+            Merged headers
+        """
+        return {**self.headers, **headers}
 
 
 class XspSettings(BaseSettings):
