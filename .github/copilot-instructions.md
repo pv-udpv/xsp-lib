@@ -63,17 +63,11 @@ pytest --cov=xsp --cov-report=term-missing
 ## Linting Commands
 
 ```bash
-# Auto-fix with ruff (safe fixes only)
-ruff check --fix src tests
+# Auto-fix with ruff (including unsafe fixes)
+ruff check --fix --unsafe-fixes src tests
 
 # Check without fixing
 ruff check src tests
-
-# Format code with black
-black src tests
-
-# Check formatting without modifying
-black --check src tests
 ```
 
 ## Type Checking Commands
@@ -155,7 +149,7 @@ xsp-lib/
 - **HTTP Transport**: httpx>=0.25.0
 - **VAST Protocol**: lxml>=5.0.0
 - **OpenRTB Protocol**: orjson>=3.9.0
-- **Development**: pytest, mypy, ruff, black (see pyproject.toml)
+- **Development**: pytest, mypy, ruff (see pyproject.toml)
 
 ---
 
