@@ -36,12 +36,21 @@ def main() -> None:
         type=Path,
         help="Output file (default: stdout)",
     )
+    parser.add_argument(
+        "--no-validate",
+        dest="validate",
+        action="store_false",
+        default=True,
+        help="Skip TOML validation (faster, less safe)",
+    )
 
     args = parser.parse_args()
 
     # Generate template
     if args.format == "toml":
-        template = ConfigGenerator.generate_toml(group_by=args.group_by)
+        template = ConfigGenerator.generate_toml(
+            group_by=args.group_by, validate=args.validate
+        )
     elif args.format == "yaml":
         template = ConfigGenerator.generate_yaml(group_by=args.group_by)
     else:
