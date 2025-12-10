@@ -1,0 +1,57 @@
+# VAST Configuration Template
+# Generated TOML configuration for VAST protocol classes
+
+[vast]
+# VAST protocol upstream for video ad serving
+# Source: VastUpstream
+
+# Enable IAB macro substitution
+# Type: bool
+enable_macros = true
+
+# Validate XML structure after fetch
+# Type: bool
+validate_xml = false
+
+# Expected VAST version (default: 4.2)
+# Type: VastVersion
+# Options: "2.0", "3.0", "4.0", "4.1", "4.2"
+version = "4.2"
+
+
+[vmap]
+# VMAP upstream for video ad pod scheduling
+# Source: VmapUpstream
+
+# VMAP inherits all VAST configuration
+# No additional configuration options at this time
+
+
+[vast.macros]
+# IAB macro substitution configuration
+# Source: MacroSubstitutor
+
+# Enable [CACHEBUSTING] macro
+# Type: bool
+enable_cachebusting = true
+
+# Enable [TIMESTAMP] macro
+# Type: bool
+enable_timestamp = true
+
+
+# ============================================================================
+# Multi-Environment Configuration Example
+# ============================================================================
+
+# You can override these settings for different environments:
+#
+# Production (settings.production.toml):
+#   [vast]
+#   validate_xml = true  # Strict validation in production
+#
+# Development (settings.development.toml):
+#   [vast]
+#   enable_macros = false  # Disable macros for easier debugging
+#
+# ============================================================================
