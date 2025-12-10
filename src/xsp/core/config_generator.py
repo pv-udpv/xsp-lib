@@ -11,7 +11,7 @@ from tomlkit import comment, document, nl, table
 
 from xsp.core.configurable import get_configurable_registry
 
-# Use tomli for validation on Python 3.11+, or fallback to tomllib
+# Use tomllib for validation on Python 3.11+, or fallback to tomli
 try:
     import tomllib  # Python 3.11+
 except ImportError:
