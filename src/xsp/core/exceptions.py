@@ -27,3 +27,7 @@ class ValidationError(XspError):
 
 class FrequencyCapExceeded(XspError):  # noqa: N818
     """Frequency cap limit exceeded."""
+
+
+class BudgetExceeded(XspError):  # noqa: N818
+    """Budget limit exceeded."""
