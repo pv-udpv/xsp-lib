@@ -5,7 +5,7 @@ from xsp.core.exceptions import (
     DecodeError,
     TransportError,
     UpstreamError,
-    UpstreamTimeout,
+    UpstreamTimeoutError,
     ValidationError,
     XspError,
 )
@@ -25,7 +25,7 @@ __all__ = [
     "TransportType",
     "Upstream",
     "UpstreamError",
-    "UpstreamTimeout",
+    "UpstreamTimeoutError",
     "ValidationError",
     "XspError",
 ]

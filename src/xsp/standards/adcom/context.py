@@ -206,9 +206,7 @@ class User(AdComModel):
     gender: str | None = Field(default=None, description="Gender (M/F/O)")
     keywords: str | None = Field(default=None, description="Keywords")
     consent: str | None = Field(default=None, description="Consent string")
-    eids: list[ExtendedIdentifiers] | None = Field(
-        default=None, description="Extended identifiers"
-    )
+    eids: list[ExtendedIdentifiers] | None = Field(default=None, description="Extended identifiers")
     data: list[Data] | None = Field(default=None, description="Data segments")
     geo: Geo | None = Field(default=None, description="Geographic location")
 
