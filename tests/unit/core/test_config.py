@@ -1,6 +1,5 @@
 """Tests for UpstreamConfig dataclass."""
 
-import pytest
 
 from xsp.core.base import BaseUpstream
 from xsp.core.config import UpstreamConfig

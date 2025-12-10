@@ -56,7 +56,7 @@ class UpstreamConfig:
     timeout: float = 30.0
     max_retries: int = 3
 
-    def replace(self, **kwargs: Any) -> "UpstreamConfig":
+    def replace(self, **kwargs: Any) -> UpstreamConfig:
         """
         Create new config with updated fields.
 
