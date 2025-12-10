@@ -4,7 +4,7 @@ Provides high-level API for serving ads across multiple protocols
 with caching, error handling, and protocol routing.
 """
 
-from typing import Any, cast
+from typing import cast
 
 from xsp.core.protocol import AdRequest, AdResponse, ProtocolHandler
 from xsp.core.state import StateBackend

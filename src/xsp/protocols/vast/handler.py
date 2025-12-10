@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from xsp.core.protocol import AdRequest, AdResponse, ProtocolHandler
+from xsp.core.protocol import AdRequest, AdResponse
 from xsp.protocols.vast.chain_resolver import ChainResolver
 
 
