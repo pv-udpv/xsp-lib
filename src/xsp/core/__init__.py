@@ -1,6 +1,7 @@
 """Core abstractions."""
 
 from xsp.core.base import BaseUpstream
+from xsp.core.config import UpstreamConfig
 from xsp.core.exceptions import (
     DecodeError,
     TransportError,
@@ -26,6 +27,7 @@ __all__ = [
     "TransportError",
     "TransportType",
     "Upstream",
+    "UpstreamConfig",
     "UpstreamError",
     "UpstreamSession",
     "UpstreamTimeout",

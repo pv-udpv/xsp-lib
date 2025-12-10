@@ -160,7 +160,7 @@ All agents understand xsp-lib project specifics:
 - Protocol-based abstractions (typing.Protocol)
 - pytest with pytest-asyncio for testing
 - mypy --strict for type checking
-- ruff and black for code style
+- ruff for linting and formatting
 
 ### AdTech Protocols
 - VAST 3.0-4.2 (video ad serving)

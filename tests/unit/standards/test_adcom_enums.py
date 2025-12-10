@@ -1,34 +1,21 @@
 """Tests for AdCOM enumerations."""
 
-import pytest
 
 from xsp.standards.adcom.enums import (
     AdPosition,
     ApiFramework,
     AuditStatusCode,
     CategoryTaxonomy,
-    ClickType,
-    CompanionType,
     ConnectionType,
     ContentContext,
     CreativeAttribute,
-    DOOHVenueType,
-    DeliveryMethod,
     DeviceType,
-    EventTrackingMethod,
+    DOOHVenueType,
     EventType,
-    ExpandableDirection,
-    FeedType,
     LinearityMode,
-    LocationType,
-    MediaRating,
     NativeDataAssetType,
-    PlaybackCessationMode,
     PlaybackMethod,
-    ProductionQuality,
-    QAGMediaRating,
     VideoPlacementType,
-    VolumeNormalizationMode,
 )
 
 

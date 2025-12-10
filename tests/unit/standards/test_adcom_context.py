@@ -1,6 +1,5 @@
 """Tests for AdCOM context objects."""
 
-import pytest
 
 from xsp.standards.adcom.context import (
     App,
@@ -25,10 +24,9 @@ from xsp.standards.adcom.context import (
 from xsp.standards.adcom.enums import (
     ConnectionType,
     ContentContext,
-    DOOHVenueType,
     DeviceType,
+    DOOHVenueType,
     LocationType,
-    MediaRating,
     ProductionQuality,
 )
 
