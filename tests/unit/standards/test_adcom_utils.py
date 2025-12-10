@@ -2,7 +2,7 @@
 
 import pytest
 
-from xsp.standards.adcom.media import Ad, Display
+from xsp.standards.adcom.media import Display
 from xsp.standards.adcom.utils import get_ext, has_ext, merge_ext, set_ext
 
 
