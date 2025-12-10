@@ -32,9 +32,7 @@ class Event(AdComModel):
 
     type: EventType = Field(description="Type of event to track")
     method: EventTrackingMethod = Field(description="Method of tracking")
-    api: list[ApiFramework] | None = Field(
-        default=None, description="API frameworks for JS events"
-    )
+    api: list[ApiFramework] | None = Field(default=None, description="API frameworks for JS events")
     url: str | None = Field(default=None, description="Tracking URL template")
     cdata: dict[str, str] | None = Field(default=None, description="Custom data")
 
@@ -347,9 +345,7 @@ class Ad(AdComModel):
     cat: list[str] | None = Field(default=None, description="IAB content categories")
     cattax: int | None = Field(default=2, description="Category taxonomy")
     lang: str | None = Field(default=None, description="Language (ISO-639-1)")
-    attr: list[CreativeAttribute] | None = Field(
-        default=None, description="Creative attributes"
-    )
+    attr: list[CreativeAttribute] | None = Field(default=None, description="Creative attributes")
     secure: Literal[0, 1] | None = Field(
         default=None, description="HTTPS required (0=no, 1=yes, omit=unknown)"
     )

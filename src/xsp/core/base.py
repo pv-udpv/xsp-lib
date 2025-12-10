@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
-from xsp.core.exceptions import DecodeError, TransportError, UpstreamTimeout
+from xsp.core.exceptions import DecodeError, TransportError, UpstreamTimeoutError
 from xsp.core.transport import Transport
 
 T = TypeVar("T")
@@ -78,7 +78,7 @@ class BaseUpstream(Generic[T]):
             Decoded response of type T
 
         Raises:
-            UpstreamTimeout: If request times out
+            UpstreamTimeoutError: If request times out
             TransportError: If transport operation fails
             DecodeError: If response decoding fails
         """
@@ -116,9 +116,7 @@ class BaseUpstream(Generic[T]):
                 timeout=effective_timeout,
             )
         except TimeoutError as e:
-            raise UpstreamTimeout(
-                f"Request timed out after {effective_timeout}s"
-            ) from e
+            raise UpstreamTimeoutError(f"Request timed out after {effective_timeout}s") from e
         except Exception as e:
             raise TransportError(f"Transport error: {e}") from e
 

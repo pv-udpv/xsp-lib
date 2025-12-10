@@ -40,9 +40,7 @@ def validate_placement(data: dict[str, Any]) -> Placement:
     return Placement.model_validate(data)
 
 
-def validate_context(
-    data: dict[str, Any], context_type: str = "site"
-) -> Site | App | Dooh:
+def validate_context(data: dict[str, Any], context_type: str = "site") -> Site | App | Dooh:
     """Validate and parse a context object.
 
     Args:

@@ -13,8 +13,12 @@ class TransportError(XspError):
     """Transport layer error."""
 
 
-class UpstreamTimeout(UpstreamError):  # noqa: N818
+class UpstreamTimeoutError(UpstreamError):
     """Upstream request timed out."""
+
+
+# Backward compatibility alias (deprecated)
+UpstreamTimeout = UpstreamTimeoutError
 
 
 class DecodeError(UpstreamError):
