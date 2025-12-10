@@ -13,6 +13,29 @@ class VastVersion(str, Enum):
     V4_0 = "4.0"
     V4_1 = "4.1"
     V4_2 = "4.2"
+    
+    def __lt__(self, other: "VastVersion") -> bool:
+        """Compare VAST versions for ordering."""
+        version_order = [
+            VastVersion.V2_0,
+            VastVersion.V3_0,
+            VastVersion.V4_0,
+            VastVersion.V4_1,
+            VastVersion.V4_2,
+        ]
+        return version_order.index(self) < version_order.index(other)
+    
+    def __le__(self, other: "VastVersion") -> bool:
+        """Compare VAST versions for ordering."""
+        return self == other or self < other
+    
+    def __gt__(self, other: "VastVersion") -> bool:
+        """Compare VAST versions for ordering."""
+        return not self <= other
+    
+    def __ge__(self, other: "VastVersion") -> bool:
+        """Compare VAST versions for ordering."""
+        return not self < other
 
 
 class MediaType(str, Enum):

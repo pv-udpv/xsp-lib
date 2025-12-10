@@ -34,12 +34,14 @@ class HttpTransport:
         Initialize HTTP transport with connection pooling.
 
         Args:
-            client: Optional httpx.AsyncClient instance (if provided, pool settings ignored)
+            client: Optional httpx.AsyncClient instance. If provided, pool settings 
+                and timeout are ignored. The timeout parameter is stored but not 
+                enforced when using a custom client.
             method: Default HTTP method (GET, POST, etc.)
             max_connections: Maximum number of concurrent connections
             max_keepalive_connections: Maximum number of idle connections to keep
             keepalive_expiry: Time in seconds to keep idle connections alive
-            timeout: Default request timeout in seconds
+            timeout: Default request timeout in seconds (only used with managed client)
             follow_redirects: Whether to follow HTTP redirects
             verify_ssl: Whether to verify SSL certificates
 
@@ -139,8 +141,9 @@ class HttpTransport:
             return response.content
 
         except httpx.TimeoutException as e:
+            actual_timeout = request_args.get("timeout", self.default_timeout)
             raise TransportTimeoutError(
-                f"Request timeout after {timeout or self.default_timeout}s: {endpoint}"
+                f"Request timeout after {actual_timeout}s: {endpoint}"
             ) from e
 
         except (httpx.ConnectError, httpx.NetworkError) as e:
