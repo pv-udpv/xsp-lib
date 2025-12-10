@@ -156,9 +156,9 @@ pytest
 # Type checking
 mypy src
 
-# Linting
-ruff check src tests
-black src tests
+# Linting and formatting
+ruff check src tests --fix
+ruff format src tests
 ```
 
 ## Roadmap
