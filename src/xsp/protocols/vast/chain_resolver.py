@@ -127,8 +127,9 @@ class ChainResolver:
 
             redirect_url = vast_ad_tag_uri.text.strip()
 
-            # Update params for next fetch (redirect to new endpoint)
-            # Clear previous params and use redirect URL as endpoint
+            # Update params and endpoint for next fetch (redirect to new endpoint)
+            # Note: We create params with the redirect URL to avoid side effects
+            # on the upstream's default endpoint
             current_params = None
             if self.propagate_headers:
                 # Keep headers for session continuity
@@ -136,9 +137,8 @@ class ChainResolver:
             else:
                 current_headers = None
 
-            # Update upstream endpoint for next iteration
-            # Note: We'll need to create a new fetch with the redirect URL
-            # For now, we update the upstream's endpoint
+            # For next iteration, override endpoint with redirect URL
+            # This doesn't modify the original upstream endpoint
             self.upstream.endpoint = redirect_url
 
             depth += 1

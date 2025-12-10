@@ -4,6 +4,8 @@ Provides high-level API for serving ads across multiple protocols
 with caching, error handling, and protocol routing.
 """
 
+import hashlib
+import json
 from typing import cast
 
 from xsp.core.protocol import AdRequest, AdResponse, ProtocolHandler
@@ -104,8 +106,9 @@ class Orchestrator:
         if self.enable_caching and self.cache_backend:
             cache_key = self._build_cache_key(request, protocol)
             cached_response = await self.cache_backend.get(cache_key)
+            # Cache should only contain AdResponse objects, but we verify with isinstance
             if cached_response is not None and isinstance(cached_response, AdResponse):
-                # Type is checked by isinstance, safe to cast
+                # Type is verified by isinstance check above
                 return cast(AdResponse, cached_response)
 
         # Get handler and process request
@@ -158,9 +161,6 @@ class Orchestrator:
         Returns:
             Cache key string
         """
-        import hashlib
-        import json
-
         # Build deterministic key from request attributes
         key_data = {
             "protocol": protocol,
