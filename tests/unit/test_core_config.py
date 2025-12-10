@@ -1,6 +1,5 @@
 
 import pytest
-from pydantic import ValidationError
 
 from xsp.core.config import XspSettings
 
