@@ -1,6 +1,7 @@
 """Core abstractions."""
 
 from xsp.core.base import BaseUpstream
+from xsp.core.dialer import Dialer, HttpDialer
 from xsp.core.exceptions import (
     DecodeError,
     TransportError,
@@ -17,7 +18,9 @@ __all__ = [
     "BaseUpstream",
     "Context",
     "DecodeError",
+    "Dialer",
     "Headers",
+    "HttpDialer",
     "Metadata",
     "Params",
     "Transport",
