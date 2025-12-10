@@ -225,7 +225,7 @@ ruff check src/xsp
 
 Before adding new dependencies:
 1. Check if existing dependency can be used
-2. Run gh-advisory-database tool to check for vulnerabilities
+2. Check for vulnerabilities using the gh-advisory-database tool (available in your environment)
 3. Add to appropriate section in pyproject.toml
 4. Use minimal version constraints
 

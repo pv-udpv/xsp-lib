@@ -334,7 +334,6 @@ User: @doc-writer Create quickstart guide for VAST
 - [GitHub Copilot Custom Agents Documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents)
 - [xsp-lib Repository Instructions](.github/copilot-instructions.md)
 - [xsp-lib Architecture](docs/architecture.md)
-- [Contributing Guidelines](CONTRIBUTING.md) *(if exists)*
 
 ## Version History
 
