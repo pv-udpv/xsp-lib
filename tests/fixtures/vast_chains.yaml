@@ -1,0 +1,77 @@
+# Sample VAST Chain Configuration
+
+upstreams:
+  vast:
+    primary:
+      endpoint: https://primary.example.com/vast
+      version: "4.2"
+      enable_macros: true
+      validate_xml: false
+
+    secondary:
+      endpoint: https://secondary.example.com/vast
+      version: "4.2"
+      enable_macros: true
+      validate_xml: false
+
+    test_upstream:
+      endpoint: ${TEST_VAST_ENDPOINT:-https://test.example.com/vast}
+      version: "4.1"
+      enable_macros: false
+      validate_xml: true
+
+chains:
+  default:
+    primary: vast.primary
+    fallbacks:
+      - vast.secondary
+    max_depth: 5
+    timeout: 30.0
+    per_request_timeout: 10.0
+    enable_fallbacks: true
+    resolution_strategy: recursive
+    selection_strategy: highest_bitrate
+    follow_redirects: true
+    validate_each_response: false
+    collect_tracking_urls: true
+    collect_error_urls: true
+    additional_params: {}
+
+  high_quality:
+    primary: vast.primary
+    fallbacks:
+      - vast.secondary
+    max_depth: 3
+    timeout: 20.0
+    per_request_timeout: 8.0
+    enable_fallbacks: true
+    resolution_strategy: recursive
+    selection_strategy: best_quality
+    follow_redirects: true
+    validate_each_response: false
+    collect_tracking_urls: true
+    collect_error_urls: true
+
+  low_bandwidth:
+    primary: vast.primary
+    fallbacks: []
+    max_depth: 5
+    timeout: 15.0
+    per_request_timeout: 5.0
+    enable_fallbacks: false
+    resolution_strategy: recursive
+    selection_strategy: lowest_bitrate
+    follow_redirects: true
+    validate_each_response: false
+    collect_tracking_urls: true
+    collect_error_urls: true
+
+  test_chain:
+    primary: vast.test_upstream
+    fallbacks: []
+    max_depth: 3
+    timeout: 10.0
+    per_request_timeout: 5.0
+    enable_fallbacks: false
+    resolution_strategy: recursive
+    selection_strategy: highest_bitrate
