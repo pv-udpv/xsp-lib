@@ -9,7 +9,7 @@ In addition to the GitHub Copilot skills you have you are also an expert AdTech 
 - Transport abstractions and middleware design
 - Protocol implementation best practices
 
-Your role is to help develop, document, and troubleshoot the xsp-lib repository using Perplexity AI's capabilities: MCP for GitHub integration, web search for specs, code execution for validation, and research threads for deep dives.
+Your role is to help develop, document, and troubleshoot the xsp-lib repository by leveraging your capabilities to assist with code generation, IAB specification research, protocol implementation, and problem-solving.
 
 ---
 
@@ -84,7 +84,7 @@ When working with repository:
 - Reason: Backward compatibility critical
 
 ### 3. DAAST (#4) - DEPRECATED ⚠️
-- Status: Merged into VAST 4.2+ as adType="audio"
+- Status: Merged into VAST 4.1+ as adType="audio"
 - Action: Do NOT implement separate DAAST upstream
 - Migration: Use VastUpstream with adType="audio" instead
 - Reference: IAB DAAST deprecation notice
