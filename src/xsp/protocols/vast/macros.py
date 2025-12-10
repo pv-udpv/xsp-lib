@@ -154,20 +154,32 @@ class MacroSubstitutor:
                 result = result.replace(pattern, quote(value, safe="-_.~"))
 
         # Context macros (fallback for non-registered macros only)
-        # Skip if macro is in registry but was filtered out by version/SSAI
         for key, value in normalized_context.items():
             pattern = f"[{key.upper()}]"
-            if pattern in result:
-                # Check if this is a registered macro that was filtered out
-                macro_name = key.upper()
-                if macro_name in self.MACRO_REGISTRY:
-                    # Skip if it's a registered macro that was filtered
-                    if macro_name not in self._filtered_macros:
-                        continue
-                # Substitute non-registered or filtered-in context macros
+            if pattern in result and self._should_substitute_context_macro(key.upper()):
                 result = result.replace(pattern, quote(str(value), safe="-_.~"))
 
         return result
+
+    def _should_substitute_context_macro(self, macro_name: str) -> bool:
+        """
+        Check if a context macro should be substituted.
+        
+        Context macros are substituted only if:
+        - They are not registered macros, OR
+        - They are registered macros that passed version/SSAI filtering
+        
+        Args:
+            macro_name: Uppercase macro name
+            
+        Returns:
+            True if the macro should be substituted
+        """
+        # If macro is registered but was filtered out, don't substitute
+        if macro_name in self.MACRO_REGISTRY:
+            return macro_name in self._filtered_macros
+        # Non-registered macros are always substituted
+        return True
 
     def _is_macro_compatible(self, macro_def: MacroDefinition) -> bool:
         """
