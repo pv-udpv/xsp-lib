@@ -229,7 +229,7 @@ To verify MCP is working:
 
 ```bash
 # Check if MCP configuration is valid
-cat .github/copilot/mcp.json | python -m json.tool
+python -m json.tool < .github/copilot/mcp.json
 
 # Verify MCP servers are accessible
 npx -y @modelcontextprotocol/server-filesystem --help

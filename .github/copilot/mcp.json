@@ -5,7 +5,7 @@
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/runner/work/xsp-lib/xsp-lib"],
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
       "description": "File system access for repository navigation and code reading",
       "capabilities": ["read_file", "write_file", "list_directory", "search_files"]
     },
@@ -67,7 +67,7 @@
     },
     "development": {
       "type": "github",
-      "repository": "pv-udpv/xsp-lib",
+      "repository": "${GITHUB_REPOSITORY:-pv-udpv/xsp-lib}",
       "includes": ["issues", "pull_requests", "discussions"],
       "description": "Project development context from GitHub"
     }
