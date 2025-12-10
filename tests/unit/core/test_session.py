@@ -356,3 +356,42 @@ class TestSessionContextEdgeCases:
         assert len(context.cookies) == 100
         assert context.cookies["cookie_0"] == "value_0"
         assert context.cookies["cookie_99"] == "value_99"
+
+    def test_session_context_with_zero_timestamp(self):
+        """Test SessionContext with zero timestamp."""
+        context = SessionContext(
+            timestamp=0,
+            correlator="session-zero",
+            cachebusting="cache-1",
+            cookies={},
+            request_id="req-1"
+        )
+
+        assert context.timestamp == 0
+
+    def test_session_context_with_negative_timestamp(self):
+        """Test SessionContext with negative timestamp (pre-epoch)."""
+        # Negative timestamp (before Unix epoch)
+        context = SessionContext(
+            timestamp=-1000,
+            correlator="session-past",
+            cachebusting="cache-1",
+            cookies={},
+            request_id="req-1"
+        )
+
+        assert context.timestamp == -1000
+
+    def test_session_context_with_empty_strings(self):
+        """Test SessionContext with empty string fields."""
+        context = SessionContext(
+            timestamp=1702275840000,
+            correlator="",
+            cachebusting="",
+            cookies={},
+            request_id=""
+        )
+
+        assert context.correlator == ""
+        assert context.cachebusting == ""
+        assert context.request_id == ""
