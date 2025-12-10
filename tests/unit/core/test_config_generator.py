@@ -257,7 +257,6 @@ def test_various_python_types():
         assert "none_value = null" in toml_str
 
 
-
 def test_url_with_quotes():
     """Test TOML generation with URL containing quotes (from issue example)."""
     clear_configurable_registry()

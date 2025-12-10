@@ -4,7 +4,6 @@ Generates TOML configuration templates from @configurable registry with
 proper syntax validation.
 """
 
-import sys
 from typing import Any
 
 import tomlkit
@@ -13,13 +12,13 @@ from tomlkit import comment, document, nl, table
 from xsp.core.configurable import get_configurable_registry
 
 # Use tomli for validation on Python 3.11+, or fallback to tomllib
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
     try:
-        import tomli as tomllib  # type: ignore
+        import tomli as tomllib  # type: ignore[import-not-found,no-redef]
     except ImportError:
-        tomllib = None  # type: ignore
+        tomllib = None  # type: ignore[assignment]
 
 
 class ConfigGenerator:
@@ -63,9 +62,7 @@ class ConfigGenerator:
         return toml_str
 
     @staticmethod
-    def _generate_by_namespace(
-        registry: dict[str, Any]
-    ) -> str:
+    def _generate_by_namespace(registry: dict[str, Any]) -> str:
         """Generate TOML grouped by namespace."""
         doc = document()
         doc.add(comment("XSP-lib Configuration Template"))
@@ -113,9 +110,7 @@ class ConfigGenerator:
         return tomlkit.dumps(doc)
 
     @staticmethod
-    def _generate_by_class(
-        registry: dict[str, Any]
-    ) -> str:
+    def _generate_by_class(registry: dict[str, Any]) -> str:
         """Generate TOML grouped by class name."""
         doc = document()
         doc.add(comment("XSP-lib Configuration Template"))
@@ -183,6 +178,4 @@ class ConfigGenerator:
         try:
             tomllib.loads(toml_str)
         except Exception as e:
-            raise ValueError(
-                f"Generated TOML is invalid: {e}\n\n{toml_str}"
-            ) from e
+            raise ValueError(f"Generated TOML is invalid: {e}\n\n{toml_str}") from e

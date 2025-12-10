@@ -74,7 +74,9 @@ def configurable(
                     continue
 
                 # Only include keyword-only parameters with defaults
-                if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default is not inspect.Parameter.empty:
+                is_keyword_only = param.kind == inspect.Parameter.KEYWORD_ONLY
+                has_default = param.default is not inspect.Parameter.empty
+                if is_keyword_only and has_default:
                     param_type = type_hints.get(param_name, Any)
                     parameters[param_name] = ParameterInfo(
                         name=param_name,
