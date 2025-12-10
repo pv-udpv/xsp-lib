@@ -1,5 +1,7 @@
 """Tests for VAST wrapper chain resolver."""
 
+from typing import Any
+
 import pytest
 
 from xsp.core.exceptions import UpstreamError
@@ -461,7 +463,513 @@ async def test_creative_selection(inline_vast_xml: str) -> None:
     vast_data = resolver._parse_vast_xml(inline_vast_xml)
     creative = resolver._select_creative(vast_data)
 
-    # Phase 1: Just returns first ad
+    # Phase 2: Returns creative with selected media file
     assert creative is not None
     assert creative["type"] == "InLine"
+    assert creative["ad_system"] == "TestSystem"
+    assert creative["ad_title"] == "Test InLine Ad"
+    assert creative["selected_media_file"] is not None
+    await upstream.close()
+
+
+# Phase 2 Tests - Creative Resolution and Selection
+
+
+@pytest.fixture
+def multibitrate_inline_xml() -> str:
+    """VAST InLine with multiple media files at different bitrates."""
+    return """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="multi-bitrate-ad">
+        <InLine>
+            <AdSystem>MultiSystem</AdSystem>
+            <AdTitle>Multi-Bitrate Ad</AdTitle>
+            <Impression><![CDATA[https://impression1.example.com/imp1]]></Impression>
+            <Impression><![CDATA[https://impression2.example.com/imp2]]></Impression>
+            <Error><![CDATA[https://error.example.com/err?code=[ERRORCODE]]]></Error>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <TrackingEvents>
+                            <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+                            <Tracking event="complete"><![CDATA[https://track.example.com/complete]]></Tracking>
+                        </TrackingEvents>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="640" height="360" bitrate="500">
+                                <![CDATA[https://cdn.example.com/video-low.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="1280" height="720" bitrate="1500">
+                                <![CDATA[https://cdn.example.com/video-medium.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="1920" height="1080" bitrate="3000">
+                                <![CDATA[https://cdn.example.com/video-high.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="streaming" type="video/mp4"
+                                       width="3840" height="2160" bitrate="8000">
+                                <![CDATA[https://cdn.example.com/video-4k.mp4]]>
+                            </MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+
+@pytest.fixture
+def wrapper_with_tracking_xml() -> str:
+    """VAST Wrapper with impression and error tracking."""
+    return """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="wrapper-with-tracking">
+        <Wrapper>
+            <AdSystem>WrapperWithTracking</AdSystem>
+            <VASTAdTagURI><![CDATA[https://inline.example.com/vast]]></VASTAdTagURI>
+            <Impression><![CDATA[https://wrapper.example.com/imp1]]></Impression>
+            <Impression><![CDATA[https://wrapper.example.com/imp2]]></Impression>
+            <Error><![CDATA[https://wrapper.example.com/error]]></Error>
+        </Wrapper>
+    </Ad>
+</VAST>"""
+
+
+@pytest.mark.asyncio
+async def test_highest_bitrate_selection(multibitrate_inline_xml: str) -> None:
+    """Test creative selection with HIGHEST_BITRATE strategy."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.HIGHEST_BITRATE)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(multibitrate_inline_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is not None
+    assert creative["selected_media_file"]["bitrate"] == 8000
+    assert creative["selected_media_file"]["width"] == 3840
+    assert creative["selected_media_file"]["uri"] == "https://cdn.example.com/video-4k.mp4"
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_lowest_bitrate_selection(multibitrate_inline_xml: str) -> None:
+    """Test creative selection with LOWEST_BITRATE strategy."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.LOWEST_BITRATE)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(multibitrate_inline_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is not None
+    assert creative["selected_media_file"]["bitrate"] == 500
+    assert creative["selected_media_file"]["width"] == 640
+    assert creative["selected_media_file"]["uri"] == "https://cdn.example.com/video-low.mp4"
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_best_quality_selection_high(multibitrate_inline_xml: str) -> None:
+    """Test creative selection with BEST_QUALITY strategy (high bitrate available)."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.BEST_QUALITY)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(multibitrate_inline_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is not None
+    # Should select highest since highest bitrate >= 1000kbps
+    assert creative["selected_media_file"]["bitrate"] == 8000
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_best_quality_selection_mobile() -> None:
+    """Test creative selection with BEST_QUALITY strategy (mobile-friendly fallback)."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    # VAST with only low bitrate options (mobile scenario)
+    mobile_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="mobile-ad">
+        <InLine>
+            <AdSystem>MobileSystem</AdSystem>
+            <AdTitle>Mobile Ad</AdTitle>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="480" height="270" bitrate="300">
+                                <![CDATA[https://cdn.example.com/mobile-low.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="640" height="360" bitrate="600">
+                                <![CDATA[https://cdn.example.com/mobile-high.mp4]]>
+                            </MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.BEST_QUALITY)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(mobile_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is not None
+    # Should select lowest since all bitrates < 1000kbps
+    assert creative["selected_media_file"]["bitrate"] == 300
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_custom_selection_strategy() -> None:
+    """Test creative selection with CUSTOM strategy."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    multibitrate_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="custom-select-ad">
+        <InLine>
+            <AdSystem>CustomSystem</AdSystem>
+            <AdTitle>Custom Selection Ad</AdTitle>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="640" height="360" bitrate="500">
+                                <![CDATA[https://cdn.example.com/sd.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="1280" height="720" bitrate="1500">
+                                <![CDATA[https://cdn.example.com/hd.mp4]]>
+                            </MediaFile>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="1920" height="1080" bitrate="3000">
+                                <![CDATA[https://cdn.example.com/fullhd.mp4]]>
+                            </MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+    # Define custom selector: select first HD file (720p or higher)
+    def select_hd(media_files: list[dict[str, Any]]) -> dict[str, Any] | None:
+        for mf in media_files:
+            if mf.get("height", 0) >= 720:
+                return mf
+        return media_files[0] if media_files else None
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.CUSTOM)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+    resolver.set_custom_selector(select_hd)
+
+    vast_data = resolver._parse_vast_xml(multibitrate_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is not None
+    # Should select first 720p file
+    assert creative["selected_media_file"]["height"] == 720
+    assert creative["selected_media_file"]["uri"] == "https://cdn.example.com/hd.mp4"
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_custom_selection_without_selector() -> None:
+    """Test that CUSTOM strategy without custom selector raises error."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+    from xsp.core.exceptions import UpstreamError
+
+    inline_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="test-ad">
+        <InLine>
+            <AdSystem>TestSystem</AdSystem>
+            <AdTitle>Test Ad</AdTitle>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="640" height="360" bitrate="500">
+                                <![CDATA[https://cdn.example.com/video.mp4]]>
+                            </MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.CUSTOM)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+    # Don't set custom selector
+
+    vast_data = resolver._parse_vast_xml(inline_xml)
+
+    with pytest.raises(UpstreamError, match="CUSTOM selection strategy requires"):
+        resolver._select_creative(vast_data)
+
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_impression_collection(
+    wrapper_with_tracking_xml: str, multibitrate_inline_xml: str
+) -> None:
+    """Test impression URL collection through wrapper chain."""
+    responses = {
+        "https://ads.example.com/vast": wrapper_with_tracking_xml.encode("utf-8"),
+        "https://inline.example.com/vast": multibitrate_inline_xml.encode("utf-8"),
+    }
+    transport = MockTransport(responses)
+    upstream = VastUpstream(
+        transport=transport,
+        endpoint="https://ads.example.com/vast",
+    )
+
+    config = VastChainConfig(collect_tracking_urls=True)
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    result = await resolver.resolve()
+
+    assert result.success is True
+    assert result.vast_data is not None
+    # Should have impressions from both wrapper and inline
+    impressions = result.vast_data.get("impressions", [])
+    assert len(impressions) == 4  # 2 from wrapper + 2 from inline
+    assert "https://wrapper.example.com/imp1" in impressions
+    assert "https://wrapper.example.com/imp2" in impressions
+    assert "https://impression1.example.com/imp1" in impressions
+    assert "https://impression2.example.com/imp2" in impressions
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_error_url_collection(
+    wrapper_with_tracking_xml: str, multibitrate_inline_xml: str
+) -> None:
+    """Test error URL collection through wrapper chain."""
+    responses = {
+        "https://ads.example.com/vast": wrapper_with_tracking_xml.encode("utf-8"),
+        "https://inline.example.com/vast": multibitrate_inline_xml.encode("utf-8"),
+    }
+    transport = MockTransport(responses)
+    upstream = VastUpstream(
+        transport=transport,
+        endpoint="https://ads.example.com/vast",
+    )
+
+    config = VastChainConfig(collect_error_urls=True)
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    result = await resolver.resolve()
+
+    assert result.success is True
+    assert result.vast_data is not None
+    # Should have error URLs from both wrapper and inline
+    error_urls = result.vast_data.get("error_urls", [])
+    assert len(error_urls) == 2  # 1 from wrapper + 1 from inline
+    assert "https://wrapper.example.com/error" in error_urls
+    assert "https://error.example.com/err?code=[ERRORCODE]" in error_urls
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_media_file_parsing(multibitrate_inline_xml: str) -> None:
+    """Test MediaFile parsing with various attributes."""
+    config = VastChainConfig()
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(multibitrate_inline_xml)
+
+    assert vast_data["ad_system"] == "MultiSystem"
+    assert vast_data["ad_title"] == "Multi-Bitrate Ad"
+
+    media_files = vast_data["media_files"]
+    assert len(media_files) == 4
+
+    # Check first media file (low bitrate)
+    mf1 = media_files[0]
+    assert mf1["delivery"] == "progressive"
+    assert mf1["type"] == "video/mp4"
+    assert mf1["width"] == 640
+    assert mf1["height"] == 360
+    assert mf1["bitrate"] == 500
+    assert mf1["uri"] == "https://cdn.example.com/video-low.mp4"
+
+    # Check last media file (4K)
+    mf4 = media_files[3]
+    assert mf4["delivery"] == "streaming"
+    assert mf4["bitrate"] == 8000
+    assert mf4["width"] == 3840
+
+    # Check tracking events
+    tracking = vast_data["tracking_events"]
+    assert "start" in tracking
+    assert "complete" in tracking
+    assert len(tracking["start"]) == 1
+    assert tracking["start"][0] == "https://track.example.com/start"
+
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_no_media_files_available() -> None:
+    """Test edge case: no media files available."""
+    from xsp.protocols.vast.chain import SelectionStrategy
+
+    # VAST with no media files
+    no_media_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="no-media-ad">
+        <InLine>
+            <AdSystem>NoMediaSystem</AdSystem>
+            <AdTitle>No Media Ad</AdTitle>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <MediaFiles>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+    config = VastChainConfig(selection_strategy=SelectionStrategy.HIGHEST_BITRATE)
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    vast_data = resolver._parse_vast_xml(no_media_xml)
+    creative = resolver._select_creative(vast_data)
+
+    assert creative is None  # No creative available
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_collect_impressions_method(multibitrate_inline_xml: str) -> None:
+    """Test _collect_impressions method directly."""
+    config = VastChainConfig()
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    impressions = resolver._collect_impressions(multibitrate_inline_xml)
+
+    assert len(impressions) == 2
+    assert "https://impression1.example.com/imp1" in impressions
+    assert "https://impression2.example.com/imp2" in impressions
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_collect_error_urls_method(multibitrate_inline_xml: str) -> None:
+    """Test _collect_error_urls method directly."""
+    config = VastChainConfig()
+    transport = MemoryTransport(b"")
+    upstream = VastUpstream(transport=transport, endpoint="https://test.com")
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    error_urls = resolver._collect_error_urls(multibitrate_inline_xml)
+
+    assert len(error_urls) == 1
+    assert "https://error.example.com/err?code=[ERRORCODE]" in error_urls
+    await upstream.close()
+
+
+@pytest.mark.asyncio
+async def test_tracking_disabled() -> None:
+    """Test that tracking collection can be disabled."""
+    wrapper_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="wrapper-ad">
+        <Wrapper>
+            <AdSystem>WrapperSystem</AdSystem>
+            <VASTAdTagURI><![CDATA[https://inline.example.com/vast]]></VASTAdTagURI>
+            <Impression><![CDATA[https://wrapper.example.com/imp]]></Impression>
+            <Error><![CDATA[https://wrapper.example.com/error]]></Error>
+        </Wrapper>
+    </Ad>
+</VAST>"""
+
+    inline_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+    <Ad id="inline-ad">
+        <InLine>
+            <AdSystem>InlineSystem</AdSystem>
+            <AdTitle>Inline Ad</AdTitle>
+            <Impression><![CDATA[https://inline.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="640" height="360" bitrate="500">
+                                <![CDATA[https://cdn.example.com/video.mp4]]>
+                            </MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"""
+
+    responses = {
+        "https://ads.example.com/vast": wrapper_xml.encode("utf-8"),
+        "https://inline.example.com/vast": inline_xml.encode("utf-8"),
+    }
+    transport = MockTransport(responses)
+    upstream = VastUpstream(
+        transport=transport,
+        endpoint="https://ads.example.com/vast",
+    )
+
+    config = VastChainConfig(collect_tracking_urls=False, collect_error_urls=False)
+    resolver = VastChainResolver(config, {"primary": upstream})
+
+    result = await resolver.resolve()
+
+    assert result.success is True
+    assert result.vast_data is not None
+    # Should have empty tracking arrays when disabled
+    impressions = result.vast_data.get("impressions", [])
+    error_urls = result.vast_data.get("error_urls", [])
+    assert len(impressions) == 0
+    assert len(error_urls) == 0
     await upstream.close()

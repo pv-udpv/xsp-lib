@@ -60,6 +60,7 @@ dev = [
     "mypy>=1.7.0",
     "ruff>=0.1.6",
     "black>=23.11.0",
+    "lxml-stubs>=0.5.1",
 ]
 
 [project.urls]

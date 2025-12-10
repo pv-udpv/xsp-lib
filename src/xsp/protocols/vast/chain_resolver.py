@@ -11,12 +11,15 @@ References:
 
 import asyncio
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree as ET
 
+from lxml import etree
+
 from xsp.core.exceptions import UpstreamError, UpstreamTimeout
 
-from .chain import VastChainConfig
+from .chain import SelectionStrategy, VastChainConfig
 from .types import VastResolutionResult
 
 if TYPE_CHECKING:
@@ -67,6 +70,7 @@ class VastChainResolver:
         self.upstreams = upstreams
         self._primary_key = next(iter(upstreams.keys()))
         self._fallback_keys = list(upstreams.keys())[1:]
+        self._custom_selector: Callable[[list[dict[str, Any]]], dict[str, Any] | None] | None = None
 
     async def resolve(
         self,
@@ -151,7 +155,8 @@ class VastChainResolver:
         """Resolve wrapper chain using specific upstream.
 
         Recursively follows wrapper chain until InLine is found or
-        depth limit is reached.
+        depth limit is reached. Collects impression and error URLs
+        from each wrapper in the chain.
 
         Args:
             upstream_key: Key of upstream to use
@@ -170,6 +175,10 @@ class VastChainResolver:
         upstream = self.upstreams[upstream_key]
         chain: list[str] = []
         current_depth = 0
+
+        # Accumulate tracking data from chain
+        all_impressions: list[str] = []
+        all_error_urls: list[str] = []
 
         # Initial fetch from upstream
         try:
@@ -191,8 +200,12 @@ class VastChainResolver:
         initial_url = getattr(upstream, "endpoint", "unknown")
         chain.append(initial_url)
 
-        # Parse initial response
+        # Parse initial response and collect tracking data
         vast_data = self._parse_vast_xml(xml)
+        if self.config.collect_tracking_urls:
+            all_impressions.extend(self._collect_impressions(xml))
+        if self.config.collect_error_urls:
+            all_error_urls.extend(self._collect_error_urls(xml))
 
         # Follow wrapper chain
         while self._is_wrapper(xml) and current_depth < self.config.max_depth:
@@ -237,13 +250,21 @@ class VastChainResolver:
             except TimeoutError as e:
                 raise UpstreamTimeout(f"Wrapper fetch timed out at depth {current_depth}") from e
 
-            # Update vast_data with new response
+            # Update vast_data with new response and collect tracking data
             vast_data = self._parse_vast_xml(xml)
+            if self.config.collect_tracking_urls:
+                all_impressions.extend(self._collect_impressions(xml))
+            if self.config.collect_error_urls:
+                all_error_urls.extend(self._collect_error_urls(xml))
 
         # Check if we found InLine or hit depth limit
         if self._is_inline(xml):
             # Success - we have final InLine response
-            # For Phase 1, creative selection is a stub
+            # Add accumulated tracking data to vast_data
+            vast_data["impressions"] = all_impressions
+            vast_data["error_urls"] = all_error_urls
+
+            # Select creative based on strategy
             selected_creative = self._select_creative(vast_data)
 
             return VastResolutionResult(
@@ -326,44 +347,142 @@ class VastChainResolver:
     def _parse_vast_xml(self, xml: str) -> dict[str, Any]:
         """Parse VAST XML into dictionary structure.
 
-        Basic parser for Phase 1. Will be enhanced in Phase 2 with
-        full VAST structure parsing.
+        Enhanced parser for Phase 2 with full VAST structure parsing
+        including MediaFiles, tracking events, and creative data.
+
+        Per VAST 4.2 §2.4.3.2 - InLine elements contain complete
+        creative assets including MediaFiles.
 
         Args:
             xml: VAST XML string
 
         Returns:
-            Dictionary with parsed VAST data
+            Dictionary with parsed VAST data including:
+            - version: VAST version
+            - ad_system: Ad system name
+            - ad_title: Ad title
+            - media_files: List of MediaFile dicts with attributes
+            - tracking_events: Dict of event types to URL lists
+            - ads: List of ad data
         """
         try:
-            root = ET.fromstring(xml)
+            root = etree.fromstring(xml.encode("utf-8"))
             vast_data: dict[str, Any] = {
                 "version": root.get("version", "unknown"),
                 "ads": [],
+                "ad_system": None,
+                "ad_title": None,
+                "media_files": [],
+                "tracking_events": {},
             }
 
-            # Parse basic Ad structure
-            for ad in root.findall(".//Ad"):
-                ad_data = {
-                    "id": ad.get("id"),
+            # Parse Ad structure - per VAST 4.2 §2.3.1
+            ad_elements = root.xpath("//Ad")
+            if not isinstance(ad_elements, list):
+                return vast_data
+
+            for ad_elem in ad_elements:
+                # Type narrowing for lxml Element
+                from lxml.etree import _Element
+
+                if not isinstance(ad_elem, _Element):
+                    continue
+
+                ad_data: dict[str, Any] = {
+                    "id": ad_elem.get("id"),
                     "type": None,
                 }
 
                 # Check if InLine or Wrapper
-                if ad.find("InLine") is not None:
+                inline = ad_elem.find("InLine")
+                if inline is not None and isinstance(inline, _Element):
                     ad_data["type"] = "InLine"
-                    inline = ad.find("InLine")
-                    if inline is not None:
-                        ad_data["ad_system"] = self._get_text(inline, "AdSystem")
-                        ad_data["ad_title"] = self._get_text(inline, "AdTitle")
-                elif ad.find("Wrapper") is not None:
+
+                    # Extract Ad System - per VAST 4.2 §2.3.1.2
+                    ad_system_elem = inline.find("AdSystem")
+                    if ad_system_elem is not None and isinstance(ad_system_elem, _Element):
+                        text = ad_system_elem.text
+                        if text is not None:
+                            ad_data["ad_system"] = text.strip()
+                            vast_data["ad_system"] = text.strip()
+
+                    # Extract Ad Title - per VAST 4.2 §2.3.1.3
+                    ad_title_elem = inline.find("AdTitle")
+                    if ad_title_elem is not None and isinstance(ad_title_elem, _Element):
+                        text = ad_title_elem.text
+                        if text is not None:
+                            ad_data["ad_title"] = text.strip()
+                            vast_data["ad_title"] = text.strip()
+
+                    # Extract MediaFiles from Linear creatives - per VAST 4.2 §2.3.1.5
+                    media_files = []
+                    media_file_elements = inline.xpath(".//Creative/Linear/MediaFiles/MediaFile")
+                    if isinstance(media_file_elements, list):
+                        for mf_elem in media_file_elements:
+                            if not isinstance(mf_elem, _Element):
+                                continue
+
+                            media_data: dict[str, Any] = {
+                                "delivery": mf_elem.get("delivery"),  # progressive or streaming
+                                "type": mf_elem.get("type"),  # MIME type
+                                "width": mf_elem.get("width"),
+                                "height": mf_elem.get("height"),
+                                "bitrate": mf_elem.get("bitrate"),
+                                "uri": None,
+                            }
+
+                            # Extract URI from text content
+                            text = mf_elem.text
+                            if text is not None:
+                                media_data["uri"] = text.strip()
+
+                            # Convert numeric attributes to int if present
+                            if media_data["width"]:
+                                media_data["width"] = int(media_data["width"])
+                            if media_data["height"]:
+                                media_data["height"] = int(media_data["height"])
+                            if media_data["bitrate"]:
+                                media_data["bitrate"] = int(media_data["bitrate"])
+
+                            media_files.append(media_data)
+
+                    ad_data["media_files"] = media_files
+                    vast_data["media_files"] = media_files
+
+                    # Extract tracking events - per VAST 4.2 §2.3.1.5.5
+                    tracking_events: dict[str, list[str]] = {}
+                    tracking_elements = inline.xpath(".//Creative/Linear/TrackingEvents/Tracking")
+                    if isinstance(tracking_elements, list):
+                        for track_elem in tracking_elements:
+                            if not isinstance(track_elem, _Element):
+                                continue
+
+                            event_type = track_elem.get("event")
+                            text = track_elem.text
+                            if event_type and text:
+                                url = text.strip()
+                                if event_type not in tracking_events:
+                                    tracking_events[event_type] = []
+                                tracking_events[event_type].append(url)
+
+                    ad_data["tracking_events"] = tracking_events
+                    vast_data["tracking_events"] = tracking_events
+
+                elif ad_elem.find("Wrapper") is not None:
                     ad_data["type"] = "Wrapper"
 
                 vast_data["ads"].append(ad_data)
 
             return vast_data
-        except ET.ParseError:
-            return {"version": "unknown", "ads": []}
+        except etree.XMLSyntaxError:
+            return {
+                "version": "unknown",
+                "ads": [],
+                "ad_system": None,
+                "ad_title": None,
+                "media_files": [],
+                "tracking_events": {},
+            }
 
     def _get_text(self, element: ET.Element, tag: str) -> str | None:
         """Get text content from XML element.
@@ -380,11 +499,133 @@ class VastChainResolver:
             return child.text.strip()
         return None
 
+    def _collect_impressions(self, xml: str) -> list[str]:
+        """Collect impression URLs from VAST XML.
+
+        Extracts all Impression elements from the VAST response.
+        Per VAST 4.2 §2.3.1.4 - Impression tracking URLs.
+
+        Args:
+            xml: VAST XML string
+
+        Returns:
+            List of impression URL strings
+        """
+        try:
+            root = etree.fromstring(xml.encode("utf-8"))
+            impressions = []
+
+            # Collect from both InLine and Wrapper
+            impression_elements = root.xpath("//Impression")
+            if isinstance(impression_elements, list):
+                from lxml.etree import _Element
+
+                for elem in impression_elements:
+                    if isinstance(elem, _Element):
+                        text = elem.text
+                        if text:
+                            url = text.strip()
+                            if url:
+                                impressions.append(url)
+
+            return impressions
+        except etree.XMLSyntaxError:
+            return []
+
+    def _collect_error_urls(self, xml: str) -> list[str]:
+        """Collect error tracking URLs from VAST XML.
+
+        Extracts all Error elements from the VAST response.
+        Per VAST 4.2 §2.3.1.7 - Error tracking URLs.
+
+        Args:
+            xml: VAST XML string
+
+        Returns:
+            List of error tracking URL strings
+        """
+        try:
+            root = etree.fromstring(xml.encode("utf-8"))
+            error_urls = []
+
+            # Collect from both InLine and Wrapper
+            error_elements = root.xpath("//Error")
+            if isinstance(error_elements, list):
+                from lxml.etree import _Element
+
+                for elem in error_elements:
+                    if isinstance(elem, _Element):
+                        text = elem.text
+                        if text:
+                            url = text.strip()
+                            if url:
+                                error_urls.append(url)
+
+            return error_urls
+        except etree.XMLSyntaxError:
+            return []
+
+    def set_custom_selector(
+        self, selector: Callable[[list[dict[str, Any]]], dict[str, Any] | None]
+    ) -> None:
+        """Set custom creative selection function.
+
+        Used when selection_strategy is set to SelectionStrategy.CUSTOM.
+        The selector function receives a list of MediaFile dicts and should
+        return the selected MediaFile dict or None.
+
+        Args:
+            selector: Function that takes list of media files and returns selected one
+
+        Example:
+            >>> def select_hd(media_files):
+            ...     # Select first HD file (720p or higher)
+            ...     for mf in media_files:
+            ...         if mf.get("height", 0) >= 720:
+            ...             return mf
+            ...     return media_files[0] if media_files else None
+            >>> resolver.set_custom_selector(select_hd)
+        """
+        self._custom_selector = selector
+
+    def _track_fallback(self, error_urls: list[str]) -> None:
+        """Track fallback usage by collecting error URLs.
+
+        Stub for Phase 2. Collects error URLs for future tracking implementation.
+        Actual HTTP calls to tracking URLs will be implemented in Phase 3.
+
+        Per VAST 4.2 §2.3.1.7 - Error tracking should be fired when
+        fallback upstreams are used.
+
+        Args:
+            error_urls: List of error tracking URLs to fire
+        """
+        # Phase 2: Just collect URLs, don't send yet
+        # Phase 3 will implement actual HTTP tracking
+        pass
+
+    def _track_error(self, error_urls: list[str], error_code: str | None = None) -> None:
+        """Track error by collecting error URLs.
+
+        Stub for Phase 2. Collects error URLs for future tracking implementation.
+        Actual HTTP calls to tracking URLs will be implemented in Phase 3.
+
+        Per VAST 4.2 §2.3.1.7 - Error tracking URLs should be fired
+        when errors occur during ad playback or resolution.
+
+        Args:
+            error_urls: List of error tracking URLs to fire
+            error_code: Optional VAST error code (e.g., "400", "303")
+        """
+        # Phase 2: Just collect URLs, don't send yet
+        # Phase 3 will implement actual HTTP tracking with error code macro substitution
+        pass
+
     def _select_creative(self, vast_data: dict[str, Any]) -> dict[str, Any] | None:
         """Select creative from resolved VAST response.
 
-        Stub implementation for Phase 1. Will be fully implemented in Phase 2
-        with proper media file selection based on bitrate, resolution, etc.
+        Implements creative selection strategies based on configuration.
+        Selects appropriate MediaFile based on bitrate, quality, or custom logic.
 
         Per VAST 4.2 §2.4.4.1 - MediaFile selection based on delivery method,
         dimensions, bitrate, codec, and scalability.
@@ -393,11 +634,73 @@ class VastChainResolver:
             vast_data: Parsed VAST data dictionary
 
         Returns:
-            Selected creative dict or None
+            Selected creative dict with selected_media_file or None
+
+        Raises:
+            UpstreamError: If CUSTOM strategy is used without custom selector
         """
-        # Phase 1 stub: Return first ad if available
-        ads = vast_data.get("ads")
-        if ads and isinstance(ads, list) and len(ads) > 0:
-            first_ad: dict[str, Any] = ads[0]
-            return first_ad
+        media_files = vast_data.get("media_files", [])
+        if not media_files:
+            return None
+
+        # Apply selection strategy
+        strategy = self.config.selection_strategy
+        selected_media: dict[str, Any] | None = None
+
+        if strategy == SelectionStrategy.HIGHEST_BITRATE:
+            # Select MediaFile with highest bitrate
+            # Filter to only files with valid bitrate
+            files_with_bitrate = [f for f in media_files if f.get("bitrate") is not None]
+            if files_with_bitrate:
+                selected_media = max(files_with_bitrate, key=lambda f: f.get("bitrate", 0))
+            elif media_files:
+                # Fallback to first if no bitrates available
+                selected_media = media_files[0]
+
+        elif strategy == SelectionStrategy.LOWEST_BITRATE:
+            # Select MediaFile with lowest bitrate
+            files_with_bitrate = [f for f in media_files if f.get("bitrate") is not None]
+            if files_with_bitrate:
+                selected_media = min(files_with_bitrate, key=lambda f: f.get("bitrate", 0))
+            elif media_files:
+                selected_media = media_files[0]
+
+        elif strategy == SelectionStrategy.BEST_QUALITY:
+            # Select highest bitrate if >= 1000kbps, else lowest (mobile-friendly)
+            # Per VAST 4.2 §2.4.4.1 - Consider bitrate for quality selection
+            files_with_bitrate = [f for f in media_files if f.get("bitrate") is not None]
+            if files_with_bitrate:
+                highest = max(files_with_bitrate, key=lambda f: f.get("bitrate", 0))
+                if highest.get("bitrate", 0) >= 1000:
+                    selected_media = highest
+                else:
+                    # Mobile-friendly fallback: use lowest bitrate
+                    selected_media = min(files_with_bitrate, key=lambda f: f.get("bitrate", 0))
+            elif media_files:
+                selected_media = media_files[0]
+
+        elif strategy == SelectionStrategy.CUSTOM:
+            # Use custom selector function
+            if self._custom_selector is None:
+                raise UpstreamError(
+                    "CUSTOM selection strategy requires custom selector function. "
+                    "Call set_custom_selector() first."
+                )
+            selected_media = self._custom_selector(media_files)
+
+        # Build creative result
+        if selected_media:
+            # Get first ad data
+            ads = vast_data.get("ads", [])
+            first_ad = ads[0] if ads else {}
+
+            return {
+                "type": first_ad.get("type", "InLine"),
+                "ad_id": first_ad.get("id"),
+                "ad_system": vast_data.get("ad_system"),
+                "ad_title": vast_data.get("ad_title"),
+                "selected_media_file": selected_media,
+                "all_media_files": media_files,
+            }
+
         return None
