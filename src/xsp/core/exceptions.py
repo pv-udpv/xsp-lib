@@ -23,3 +23,7 @@ class DecodeError(UpstreamError):
 
 class ValidationError(XspError):
     """Schema validation failed."""
+
+
+class FrequencyCapExceeded(XspError):  # noqa: N818
+    """Frequency cap limit exceeded."""

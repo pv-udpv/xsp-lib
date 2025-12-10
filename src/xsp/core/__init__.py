@@ -4,6 +4,7 @@ from xsp.core.base import BaseUpstream
 from xsp.core.dialer import Dialer, HttpDialer
 from xsp.core.exceptions import (
     DecodeError,
+    FrequencyCapExceeded,
     TransportError,
     UpstreamError,
     UpstreamTimeout,
@@ -20,6 +21,7 @@ __all__ = [
     "Context",
     "DecodeError",
     "Dialer",
+    "FrequencyCapExceeded",
     "Headers",
     "HttpDialer",
     "Metadata",
