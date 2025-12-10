@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-"""Orchestrator package."""
-
-from .orchestrator import Orchestrator
-
-__all__ = ["Orchestrator"]
-=======
 """Protocol-agnostic orchestration layer for xsp-lib."""
 
 from xsp.orchestrator.orchestrator import Orchestrator
@@ -17,4 +10,3 @@ __all__ = [
     "AdRequest",
     "AdResponse",
 ]
->>>>>>> origin/main
