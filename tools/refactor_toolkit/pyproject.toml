@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rope-toolkit"
+version = "0.1.0-experimental"
+description = "Advanced Python code analysis & refactoring engine with tree-sitter indexing, code graphs, and MCP/LSP integration"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "xsp-lib team", email = "dev@xsp-lib.io"}
+]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=0.1.0"]
+lsp = ["pygls>=1.0", "python-lsp-server>=1.7"]
+tree-sitter = ["tree-sitter>=0.20", "tree-sitter-python>=0.20"]
+vector-search = ["sqlite-vec>=0.1"]
+graph = ["neo4j>=5.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rope_toolkit"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
