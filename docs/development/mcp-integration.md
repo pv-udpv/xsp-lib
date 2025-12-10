@@ -65,6 +65,16 @@ The MCP configuration is defined in `.github/copilot/mcp.json` and includes:
   - Tracking implementation progress
   - Maintaining conversation context
 
+#### 6. Rope Refactoring Server
+- **Purpose**: Intelligent Python code refactoring using Rope
+- **Capabilities**: Rename, extract method, extract variable, inline, organize imports
+- **Use cases**:
+  - Safe renaming of variables, functions, classes
+  - Extracting code into methods or variables
+  - Organizing and optimizing imports
+  - Inline refactoring operations
+- **Technology**: Python LSP Server with Rope integration via uvx
+
 ## Context Providers
 
 ### Repository Context
@@ -112,11 +122,12 @@ Intelligent test creation with:
 ## Agent-Specific Enhancements
 
 ### @developer Agent
-**MCP Servers**: filesystem, github, python, web
+**MCP Servers**: filesystem, github, python, web, rope-refactor
 **Enhanced with**:
 - IAB specification compliance checking
 - Python async/await best practices
 - Type safety validation
+- Intelligent code refactoring with Rope
 
 ### @tester Agent
 **MCP Servers**: filesystem, python
@@ -233,8 +244,9 @@ The repository includes a dedicated workflow (`.github/workflows/copilot-setup-s
 - Sets up Node.js for MCP servers
 - Verifies CLI tools (pytest, mypy, ruff, uv, uvx)
 - Validates MCP configuration
+- Verifies Rope refactoring server availability
 
-This ensures the agent has a fully configured environment before executing tasks, including support for running Python-based MCP servers through `uvx`.
+This ensures the agent has a fully configured environment before executing tasks, including support for running Python-based MCP servers through `uvx` and intelligent refactoring capabilities with Rope.
 
 ### Verifying MCP Configuration
 

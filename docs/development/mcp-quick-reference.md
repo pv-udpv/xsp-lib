@@ -38,12 +38,13 @@ python -m json.tool < .github/copilot/mcp.json
 | **python** | Run code, tests, type checking | Validation, testing, analysis |
 | **web** | Fetch IAB specs | Protocol specifications, standards |
 | **memory** | Store/retrieve context | Session continuity |
+| **rope-refactor** | Rename, extract, inline, organize imports | Safe code refactoring |
 
 ## Agent MCP Access
 
 | Agent | MCP Servers | Enhanced For |
 |-------|-------------|-------------|
-| `@developer` | filesystem, github, python, web | Spec-compliant implementation |
+| `@developer` | filesystem, github, python, web, rope-refactor | Spec-compliant implementation, refactoring |
 | `@tester` | filesystem, python | Protocol validation tests |
 | `@doc-writer` | filesystem, web | Accurate documentation |
 | `@orchestrator` | filesystem, github, memory | Coordinated planning |
@@ -114,6 +115,21 @@ MCP enables direct access to:
 
 # README update
 @doc-writer Update README with [section] information
+```
+
+### Refactoring
+```bash
+# Safe rename
+@developer Rename [old_name] to [new_name] across the codebase
+
+# Extract method
+@developer Extract [code_block_description] into a separate method
+
+# Organize imports
+@developer Organize and optimize imports in [module]
+
+# Extract variable
+@developer Extract [expression] into a well-named variable
 ```
 
 ### Planning

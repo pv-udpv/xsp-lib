@@ -490,14 +490,73 @@ cat .github/copilot/mcp.json | grep -A 10 allowedDomains
 
 ---
 
+## Example 9: Code Refactoring with Rope
+
+### Scenario
+Refactor existing VAST parsing code to improve maintainability.
+
+### With MCP (Rope Refactoring)
+```bash
+@developer Refactor the VastParser class to extract the XML validation logic into a separate method
+```
+
+**What happens:**
+1. **Filesystem Server**: Reads the current VastParser implementation
+2. **Rope-Refactor Server**: Analyzes code structure and dependencies
+3. **Python Server**: Validates the refactored code with type checking
+4. **Rope-Refactor Server**: Performs safe extract method refactoring
+
+**Refactoring Operations Available:**
+- **Rename**: Safely rename variables, functions, classes across the codebase
+- **Extract Method**: Pull code blocks into new methods
+- **Extract Variable**: Create variables for complex expressions
+- **Inline**: Inline method/variable definitions
+- **Organize Imports**: Sort and optimize import statements
+
+**Example Output:**
+```python
+# Before
+class VastParser:
+    def parse(self, xml_string: str) -> VastAd:
+        # Validate XML structure
+        if not xml_string.startswith('<?xml'):
+            raise ValueError("Invalid XML")
+        # Parse XML
+        tree = ET.fromstring(xml_string)
+        # More parsing logic...
+        return ad
+
+# After (with extract method)
+class VastParser:
+    def _validate_xml_structure(self, xml_string: str) -> None:
+        """Validate XML structure before parsing."""
+        if not xml_string.startswith('<?xml'):
+            raise ValueError("Invalid XML")
+    
+    def parse(self, xml_string: str) -> VastAd:
+        self._validate_xml_structure(xml_string)
+        tree = ET.fromstring(xml_string)
+        # More parsing logic...
+        return ad
+```
+
+**Benefits:**
+- Safe refactoring with dependency analysis
+- Maintains type hints and docstrings
+- Updates all references automatically
+- Preserves code functionality
+
+---
+
 ## Additional Resources
 
 - [MCP Integration Guide](mcp-integration.md)
 - [Custom Agents Documentation](../../AGENTS.md)
 - [GitHub Copilot MCP Docs](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/extend-coding-agent-with-mcp)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
+- [Python Rope Documentation](https://github.com/python-rope/rope)
 
 ---
 
 **Last Updated**: December 10, 2025
-**Version**: 1.0
+**Version**: 1.1

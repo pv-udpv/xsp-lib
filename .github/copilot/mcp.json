@@ -41,6 +41,15 @@
       "args": ["-y", "@modelcontextprotocol/server-memory"],
       "description": "Persistent memory for context across sessions",
       "capabilities": ["store_context", "retrieve_context", "semantic_search"]
+    },
+    "rope-refactor": {
+      "command": "uvx",
+      "args": ["python-lsp-server"],
+      "description": "Python refactoring server using Rope for intelligent code transformations",
+      "capabilities": ["rename", "extract_method", "extract_variable", "inline", "organize_imports"],
+      "env": {
+        "PYLSP_ROPE_ENABLED": "true"
+      }
     }
   },
   "contextProviders": {
@@ -110,7 +119,7 @@
   },
   "customAgentEnhancements": {
     "developer": {
-      "mcpServers": ["filesystem", "github", "python", "web"],
+      "mcpServers": ["filesystem", "github", "python", "web", "rope-refactor"],
       "additionalContext": [
         "IAB specification compliance requirements",
         "Python async/await best practices",
@@ -149,7 +158,8 @@
       "read_github",
       "fetch_specifications",
       "run_tests",
-      "analyze_code"
+      "analyze_code",
+      "refactor_code"
     ],
     "restrictedOperations": [
       "modify_github_issues",

@@ -53,6 +53,8 @@ jobs:
           npm --version
           echo "Checking uvx for Python-based MCP servers..."
           uvx --help | head -n 5
+          echo "Checking rope refactoring server..."
+          uvx python-lsp-server --version || echo "Python LSP server with Rope available"
 
       - name: Verify CLI tools
         run: |
