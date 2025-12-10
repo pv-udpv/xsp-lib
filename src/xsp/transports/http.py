@@ -3,6 +3,7 @@
 from typing import Any
 
 from xsp.core.transport import TransportType
+from xsp.core.configurable import configurable
 
 try:
     import httpx
@@ -10,13 +11,21 @@ except ImportError:
     httpx = None  # type: ignore
 
 
+@configurable(
+    namespace="http",
+    description="HTTP/HTTPS transport configuration for REST API communication"
+)
 class HttpTransport:
     """HTTP/HTTPS transport for REST APIs."""
 
     def __init__(
         self,
         client: Any | None = None,
+        *,
         method: str = "GET",
+        timeout: float = 30.0,
+        max_redirects: int = 10,
+        verify_ssl: bool = True,
     ):
         """
         Initialize HTTP transport.
@@ -24,6 +33,9 @@ class HttpTransport:
         Args:
             client: Optional httpx.AsyncClient instance
             method: HTTP method (GET, POST, etc.)
+            timeout: Default request timeout in seconds
+            max_redirects: Maximum number of redirects to follow
+            verify_ssl: Verify SSL certificates
 
         Raises:
             ImportError: If httpx is not installed
@@ -34,9 +46,22 @@ class HttpTransport:
                 "Install it with: pip install xsp-lib[http]"
             )
 
-        self.client = client or httpx.AsyncClient()
         self.method = method.upper()
-        self._owns_client = client is None
+        self.default_timeout = timeout
+        self.max_redirects = max_redirects
+        self.verify_ssl = verify_ssl
+
+        # Create client with config if not provided
+        if client is None:
+            self.client = httpx.AsyncClient(
+                timeout=timeout,
+                max_redirects=max_redirects,
+                verify=verify_ssl,
+            )
+            self._owns_client = True
+        else:
+            self.client = client
+            self._owns_client = False
 
     @property
     def transport_type(self) -> TransportType:
@@ -57,7 +82,7 @@ class HttpTransport:
             endpoint: URL to request
             payload: Optional request body
             metadata: Headers and parameters (params in "_params" key)
-            timeout: Request timeout
+            timeout: Request timeout (overrides default)
 
         Returns:
             Response body as bytes
@@ -90,6 +115,8 @@ class HttpTransport:
 
         if timeout is not None:
             request_args["timeout"] = timeout
+        else:
+            request_args["timeout"] = self.default_timeout
 
         # Send request
         response = await self.client.request(**request_args)
