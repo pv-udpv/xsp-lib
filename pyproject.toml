@@ -46,7 +46,12 @@ openrtb = ["orjson>=3.9.0"]  # Issue pv-udpv/xsp-lib#3
 daast = ["lxml>=5.0.0"]  # Issue pv-udpv/xsp-lib#4
 
 # Standards and schemas (future)
-schemas = ["jsonschema>=4.20.0", "pydantic>=2.5.0"]
+schemas = [
+    "jsonschema>=4.20.0",
+    "pydantic>=2.5.0",
+    "tomlkit>=0.12.0",  # For config generation with comments
+    "tomli>=2.0.0; python_version < '3.11'",  # For TOML parsing (stdlib in 3.11+)
+]
 
 # Full install
 all = ["xsp-lib[http,grpc,websocket,vast,openrtb,daast,schemas]"]
