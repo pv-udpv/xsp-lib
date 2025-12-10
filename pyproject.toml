@@ -68,6 +68,9 @@ Documentation = "https://xsp-lib.readthedocs.io"
 Repository = "https://github.com/pv-udpv/xsp-lib"
 Issues = "https://github.com/pv-udpv/xsp-lib/issues"
 
+[project.scripts]
+xsp-generate-config = "xsp.cli.generate_config:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
