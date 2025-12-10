@@ -2,13 +2,14 @@
 
 import hashlib
 import json
+from abc import ABC, abstractmethod
 from typing import Any
 
 from xsp.orchestrator.protocol import ProtocolHandler
 from xsp.orchestrator.schemas import AdRequest, AdResponse
 
 
-class CacheBackend:
+class CacheBackend(ABC):
     """
     Abstract cache backend interface.
 
@@ -16,13 +17,15 @@ class CacheBackend:
     (Redis, Memory, etc.).
     """
 
+    @abstractmethod
     async def get(self, key: str) -> AdResponse | None:
         """Get cached response by key."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def set(self, key: str, value: AdResponse, ttl: int) -> None:
         """Set cached response with TTL in seconds."""
-        raise NotImplementedError
+        ...
 
 
 class Orchestrator:
@@ -251,6 +254,8 @@ class Orchestrator:
         Creates deterministic cache key from request fields,
         excluding extensions to ensure consistent caching.
 
+        Uses SHA-256 for cryptographic security.
+
         Args:
             request: Ad request
 
@@ -265,7 +270,7 @@ class Orchestrator:
         # Sort keys for deterministic output
         key_json = json.dumps(key_data, sort_keys=True)
 
-        # Hash to fixed-length key
-        key_hash = hashlib.md5(key_json.encode()).hexdigest()
+        # Hash to fixed-length key using SHA-256
+        key_hash = hashlib.sha256(key_json.encode()).hexdigest()
 
         return f"ad:{key_hash}"
