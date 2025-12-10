@@ -113,6 +113,8 @@ class ConfigGenerator:
     def _format_toml_value(value: Any) -> str:
         """Format Python value as TOML."""
         if value is None:
+            # Note: None is represented as empty string in TOML.
+            # In practice, configurable parameters should have meaningful defaults.
             return '""'
         elif isinstance(value, bool):
             return str(value).lower()

@@ -147,3 +147,15 @@ def test_config_generator_yaml_not_implemented() -> None:
     """Test that YAML generation raises NotImplementedError."""
     with pytest.raises(NotImplementedError, match="YAML generation"):
         ConfigGenerator.generate_yaml()
+
+
+def test_config_generator_none_default() -> None:
+    """Test that None defaults are handled correctly."""
+
+    @configurable(namespace="none_test")
+    class NoneClass:
+        def __init__(self, *, optional_param: str | None = None) -> None:
+            pass
+
+    toml = ConfigGenerator.generate_toml()
+    assert 'optional_param = ""' in toml

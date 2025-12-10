@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 # Import all modules with @configurable to populate registry
+# These imports ensure decorated classes are registered even if not currently used
 import xsp.protocols.vast  # noqa: F401
 import xsp.transports.http  # noqa: F401
 
