@@ -25,7 +25,7 @@ class RetryMiddleware:
 
         Args:
             max_attempts: Maximum number of retry attempts
-            backoff_base: Base for exponential backoff (seconds)
+            backoff_base: Initial delay interval that doubles with each retry (seconds)
             retriable_exceptions: Tuple of exception types to retry on
         """
         self.max_attempts = max_attempts
