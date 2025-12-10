@@ -213,7 +213,7 @@ async def demo_per_campaign_frequency_cap():
             session = VastSession(wrapped_upstream, ctx)
 
             print(f"Request {i}: ", end="")
-            vast_xml = await session.fetch(
+            await session.fetch(
                 params={"w": "1920", "h": "1080"}, campaign_id="campaign-A"
             )
             print(f"✓ Success (Campaign A)")
@@ -243,7 +243,7 @@ async def demo_per_campaign_frequency_cap():
             session = VastSession(wrapped_upstream, ctx)
 
             print(f"Request {i}: ", end="")
-            vast_xml = await session.fetch(
+            await session.fetch(
                 params={"w": "1920", "h": "1080"}, campaign_id="campaign-B"
             )
             print(f"✓ Success (Campaign B)")

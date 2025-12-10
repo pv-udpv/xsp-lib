@@ -116,7 +116,7 @@ async def demo_global_budget_tracking():
             session = VastSession(wrapped_upstream, ctx)
 
             print(f"Request {i:2d}: ", end="")
-            vast_xml = await session.fetch(params={"w": "640", "h": "480"}, cost=Decimal("50.00"))
+            await session.fetch(params={"w": "640", "h": "480"}, cost=Decimal("50.00"))
 
             # Get updated budget
             current = await budget_store.get_budget("budget:global")
@@ -232,7 +232,7 @@ async def demo_per_campaign_budgets():
                 session = VastSession(wrapped_upstream, ctx)
 
                 print(f"  Request {i}: ", end="")
-                vast_xml = await session.fetch(
+                await session.fetch(
                     params={"w": "1920", "h": "1080"}, campaign_id=campaign_id, cost=cost
                 )
 

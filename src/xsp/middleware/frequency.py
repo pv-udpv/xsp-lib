@@ -224,7 +224,7 @@ class InMemoryFrequencyStore:
 
             # Increment existing non-expired entry (fixed window - TTL not reset)
             entry["count"] += 1
-            # Note: TTL is NOT reset to maintain sliding window behavior
+            # Note: TTL is NOT reset - this implements fixed window behavior (all impressions expire together)
             return int(entry["count"])
 
     async def reset(self, key: str) -> None:
@@ -495,8 +495,13 @@ class FrequencyCappingMiddleware:
                 f"in {self.cap.time_window_seconds}s window"
             )
 
-        # Increment count before request (optimistic counting)
-        await self.store.increment(key, self.cap.time_window_seconds)
+        # Pass to next handler first
+        try:
+            result = await next_handler(**kwargs)
+        except Exception:
+            # Don't increment count if request failed
+            raise
 
-        # Pass to next handler
-        return await next_handler(**kwargs)
+        # Increment count only after successful request
+        await self.store.increment(key, self.cap.time_window_seconds)
+        return result

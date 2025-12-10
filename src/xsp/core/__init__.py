@@ -3,6 +3,7 @@
 from xsp.core.base import BaseUpstream
 from xsp.core.dialer import Dialer, HttpDialer
 from xsp.core.exceptions import (
+    BudgetExceeded,
     DecodeError,
     FrequencyCapExceeded,
     TransportError,
@@ -18,6 +19,7 @@ from xsp.core.upstream import Upstream
 
 __all__ = [
     "BaseUpstream",
+    "BudgetExceeded",
     "Context",
     "DecodeError",
     "Dialer",

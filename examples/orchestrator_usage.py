@@ -67,7 +67,6 @@ async def main() -> None:
     # Step 2: Create VAST upstream with HTTP transport
     # Using memory transport for demo - replace with real endpoint in production
     print("2. Creating VAST upstream...")
-    transport = HttpTransport(timeout=15.0)
 
     # Sample VAST XML for demonstration
     # In production, this would come from an actual ad server
@@ -96,6 +95,7 @@ async def main() -> None:
 </VAST>"""
 
     # Note: Using memory transport for demo. In production, use:
+    # transport = HttpTransport()
     # vast_upstream = VastUpstream(
     #     transport=transport,
     #     endpoint="https://your-ad-server.com/vast",
