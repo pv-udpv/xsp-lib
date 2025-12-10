@@ -1,0 +1,68 @@
+# Dependabot configuration for automated dependency updates
+# See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python dependencies managed by pip/poetry
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    # Limit the number of open pull requests for pip dependencies
+    open-pull-requests-limit: 5
+    # Group dependency updates to reduce PR noise
+    groups:
+      # Group all production dependencies together
+      production-dependencies:
+        patterns:
+          - "aiohttp"
+          - "lxml"
+          - "pydantic*"
+          - "pyyaml"
+      # Group all development/testing dependencies together
+      development-dependencies:
+        patterns:
+          - "pytest*"
+          - "mypy"
+          - "ruff"
+          - "black"
+          - "lxml-stubs"
+    # Add labels to Dependabot PRs
+    labels:
+      - "dependencies"
+      - "automated"
+    # Increase the version requirements when updating
+    versioning-strategy: increase
+    # Commit message preferences
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Allow both direct and indirect dependency updates
+    allow:
+      - dependency-type: "all"
+    # Configure reviewers (adjust based on your team)
+    # Uncomment and modify as needed:
+    # reviewers:
+    #   - "maintainer-username"
+    # assignees:
+    #   - "maintainer-username"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
