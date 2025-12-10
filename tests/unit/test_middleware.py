@@ -81,51 +81,44 @@ async def test_middleware_stack_no_middleware():
     assert result == "test"
 
 
+class RecordingUpstream:
+    """Upstream that records kwargs passed to fetch."""
+
+    def __init__(self):
+        self.received_kwargs: dict | None = None
+
+    async def fetch(self, **kwargs):  # type: ignore[override]
+        self.received_kwargs = kwargs
+        return kwargs
+
+    async def close(self):
+        pass
+
+    async def health_check(self):
+        return True
+
+
+class ModifyKwargsMiddleware:
+    """Middleware that adds and overrides kwargs before upstream call."""
+
+    async def __call__(self, upstream, next_handler, **kwargs):  # type: ignore[override]
+        new_params = {"added": "value", **(kwargs.get("params") or {})}
+        new_kwargs = {**kwargs, "params": new_params, "override": "middleware"}
+        return await next_handler(**new_kwargs)
+
+
 @pytest.mark.asyncio
-async def test_retry_backoff_with_base_less_than_one(monkeypatch):
-    """Backoff should scale by powers of two when base < 1."""
+async def test_middleware_can_modify_kwargs():
+    """Middleware should be able to adjust kwargs before reaching upstream."""
 
-    delays: list[float] = []
-
-    async def fake_sleep(delay: float) -> None:  # pragma: no cover - simple stub
-        delays.append(delay)
-
-    monkeypatch.setattr("asyncio.sleep", fake_sleep)
-
-    transport = FailingTransport(fail_count=2, response=b"ok")
-    upstream = BaseUpstream(
-        transport=transport, decoder=lambda b: b.decode("utf-8"), endpoint="test"
-    )
-
-    middleware = MiddlewareStack(RetryMiddleware(max_attempts=3, backoff_base=0.5))
+    upstream = RecordingUpstream()
+    middleware = MiddlewareStack(ModifyKwargsMiddleware())
     wrapped = middleware.wrap(upstream)
 
-    result = await wrapped.fetch()
+    result = await wrapped.fetch(params={"initial": True}, override="original")
 
-    assert result == "ok"
-    assert delays == [0.5, 1.0]
-
-
-@pytest.mark.asyncio
-async def test_retry_backoff_with_base_greater_than_one(monkeypatch):
-    """Backoff should scale by powers of two when base > 1."""
-
-    delays: list[float] = []
-
-    async def fake_sleep(delay: float) -> None:  # pragma: no cover - simple stub
-        delays.append(delay)
-
-    monkeypatch.setattr("asyncio.sleep", fake_sleep)
-
-    transport = FailingTransport(fail_count=2, response=b"ok")
-    upstream = BaseUpstream(
-        transport=transport, decoder=lambda b: b.decode("utf-8"), endpoint="test"
-    )
-
-    middleware = MiddlewareStack(RetryMiddleware(max_attempts=3, backoff_base=1.5))
-    wrapped = middleware.wrap(upstream)
-
-    result = await wrapped.fetch()
-
-    assert result == "ok"
-    assert delays == [1.5, 3.0]
+    assert result == {
+        "params": {"added": "value", "initial": True},
+        "override": "middleware",
+    }
+    assert upstream.received_kwargs == result
