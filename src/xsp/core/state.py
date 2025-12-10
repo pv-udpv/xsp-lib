@@ -135,12 +135,12 @@ class RedisStateBackend:
 
     async def get(self, key: str) -> Any | None:
         """Get value for key."""
-        import pickle
+        import json
 
         raw = await self._client.get(key)
         if raw is None:
             return None
-        return pickle.loads(raw)
+        return json.loads(raw)
 
     async def set(
         self,
@@ -150,9 +150,9 @@ class RedisStateBackend:
         ttl: float | None = None,
     ) -> None:
         """Set value for key with optional TTL."""
-        import pickle
+        import json
 
-        raw = pickle.dumps(value)
+        raw = json.dumps(value)
         if ttl is not None:
             await self._client.setex(key, int(ttl), raw)
         else:
