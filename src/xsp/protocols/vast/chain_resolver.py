@@ -10,6 +10,7 @@ References:
 """
 
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -24,6 +25,8 @@ from .types import VastResolutionResult
 
 if TYPE_CHECKING:
     from .upstream import VastUpstream
+
+logger = logging.getLogger(__name__)
 
 
 class VastChainResolver:
@@ -588,38 +591,123 @@ class VastChainResolver:
         """
         self._custom_selector = selector
 
-    def _track_fallback(self, error_urls: list[str]) -> None:
-        """Track fallback usage by collecting error URLs.
+    async def _track_fallback(self, result: VastResolutionResult) -> None:
+        """Track when fallback upstream is used.
 
-        Stub for Phase 2. Collects error URLs for future tracking implementation.
-        Actual HTTP calls to tracking URLs will be implemented in Phase 3.
+        This is informational tracking for internal analytics, not standard
+        VAST tracking. Logs fallback usage for monitoring and debugging.
 
-        Per VAST 4.2 §2.3.1.7 - Error tracking should be fired when
-        fallback upstreams are used.
+        Per VAST 4.2 - Not part of the spec, but useful for operational metrics.
+
+        Args:
+            result: Resolution result containing fallback information
+
+        Example:
+            >>> await resolver._track_fallback(result)
+            # Logs: "Fallback upstream used for resolution"
+        """
+        # Log fallback usage for monitoring
+        logger.info(
+            "Fallback upstream used for VAST resolution. "
+            f"Chain depth: {len(result.chain)}, "
+            f"Resolution time: {result.resolution_time_ms:.2f}ms"
+        )
+
+    async def _track_error(self, error_urls: list[str], error_code: str = "900") -> None:
+        """Send error tracking URLs.
+
+        Fires HTTP GET requests to VAST error tracking URLs with error code
+        macro substitution. Uses fire-and-forget pattern to avoid blocking
+        resolution.
+
+        Per VAST 4.2 §2.4.2.4 - Error tracking URLs should be fired when
+        errors occur during ad playback or resolution.
+
+        VAST error codes (IAB VAST 4.2 §2.4.2.4):
+        - 900: Undefined Error
+        - 901: General VAST error
+        - 902: VAST schema validation error
+        - 303: No VAST response after one or more wrappers
 
         Args:
             error_urls: List of error tracking URLs to fire
+            error_code: VAST error code (default: 900 = undefined error)
+
+        Example:
+            >>> await resolver._track_error(
+            ...     ["https://track.example.com/error?code=[ERRORCODE]"],
+            ...     error_code="303"
+            ... )
         """
-        # Phase 2: Just collect URLs, don't send yet
-        # Phase 3 will implement actual HTTP tracking
-        pass
+        if not error_urls:
+            return
 
-    def _track_error(self, error_urls: list[str], error_code: str | None = None) -> None:
-        """Track error by collecting error URLs.
+        # Replace [ERRORCODE] macro with actual error code
+        expanded_urls = [url.replace("[ERRORCODE]", error_code) for url in error_urls]
 
-        Stub for Phase 2. Collects error URLs for future tracking implementation.
-        Actual HTTP calls to tracking URLs will be implemented in Phase 3.
+        # Send tracking requests in fire-and-forget pattern
+        for url in expanded_urls:
+            asyncio.create_task(self._send_tracking_pixel(url, "error"))
 
-        Per VAST 4.2 §2.3.1.7 - Error tracking URLs should be fired
-        when errors occur during ad playback or resolution.
+    async def _track_impression(self, impression_urls: list[str]) -> None:
+        """Send impression tracking pixels.
+
+        Fires HTTP GET requests to VAST impression tracking URLs.
+        Uses fire-and-forget pattern to avoid blocking resolution.
+
+        Per VAST 4.2 §2.3.1.4 - Impression tracking URLs should be fired
+        when the ad impression is counted (typically on first frame display).
 
         Args:
-            error_urls: List of error tracking URLs to fire
-            error_code: Optional VAST error code (e.g., "400", "303")
+            impression_urls: List of impression tracking URLs to fire
+
+        Example:
+            >>> await resolver._track_impression(
+            ...     ["https://track.example.com/impression?id=123"]
+            ... )
         """
-        # Phase 2: Just collect URLs, don't send yet
-        # Phase 3 will implement actual HTTP tracking with error code macro substitution
-        pass
+        if not impression_urls:
+            return
+
+        # Send tracking requests in fire-and-forget pattern
+        for url in impression_urls:
+            asyncio.create_task(self._send_tracking_pixel(url, "impression"))
+
+    async def _send_tracking_pixel(self, url: str, pixel_type: str) -> None:
+        """Send individual tracking pixel (fire-and-forget).
+
+        Sends HTTP GET request to tracking URL with timeout protection.
+        Errors are logged but don't propagate to avoid breaking resolution.
+
+        Per VAST 4.2 - Tracking pixels should not block ad playback.
+
+        Args:
+            url: Tracking URL to fire
+            pixel_type: Type of tracking (impression, error, etc.) for logging
+
+        Example:
+            >>> await resolver._send_tracking_pixel(
+            ...     "https://track.example.com/imp",
+            ...     "impression"
+            ... )
+        """
+        try:
+            # Get transport from primary upstream
+            primary_upstream = self.upstreams[self._primary_key]
+            transport = primary_upstream.transport
+
+            # Send GET request with short timeout (don't block resolution)
+            await asyncio.wait_for(
+                transport.send(endpoint=url, payload=None, metadata=None, timeout=5.0),
+                timeout=5.0,
+            )
+
+            logger.debug(f"Successfully sent {pixel_type} tracking pixel: {url}")
+
+        except TimeoutError:
+            logger.warning(f"Timeout sending {pixel_type} tracking pixel: {url}")
+        except Exception as e:
+            logger.warning(f"Error sending {pixel_type} tracking pixel {url}: {e}")
 
     def _select_creative(self, vast_data: dict[str, Any]) -> dict[str, Any] | None:
         """Select creative from resolved VAST response.

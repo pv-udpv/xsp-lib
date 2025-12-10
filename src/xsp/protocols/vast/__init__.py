@@ -6,6 +6,7 @@ from xsp.protocols.vast.chain import (
     VastChainConfig,
 )
 from xsp.protocols.vast.chain_resolver import VastChainResolver
+from xsp.protocols.vast.config_loader import VastChainConfigLoader
 from xsp.protocols.vast.macros import MacroSubstitutor
 from xsp.protocols.vast.types import (
     MediaType,
@@ -22,6 +23,7 @@ __all__ = [
     "ResolutionStrategy",
     "SelectionStrategy",
     "VastChainConfig",
+    "VastChainConfigLoader",
     "VastChainResolver",
     "VastResolutionResult",
     "VastResponse",
