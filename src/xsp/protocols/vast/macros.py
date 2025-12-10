@@ -165,20 +165,20 @@ class MacroSubstitutor:
         """
         Check if a context macro should be substituted.
         
-        Context macros are substituted only if:
-        - They are not registered macros, OR
-        - They are registered macros that passed version/SSAI filtering
-        
         Args:
             macro_name: Uppercase macro name
             
         Returns:
             True if the macro should be substituted
+            
+        Rules:
+            - Registered macros: only substitute if they passed version/SSAI filtering
+            - Context-only macros: always substitute if not registered
         """
-        # If macro is registered but was filtered out, don't substitute
+        # If registered, check if it passed filtering
         if macro_name in self.MACRO_REGISTRY:
             return macro_name in self._filtered_macros
-        # Non-registered macros are always substituted
+        # Context-only macros are always substituted
         return True
 
     def _is_macro_compatible(self, macro_def: MacroDefinition) -> bool:
