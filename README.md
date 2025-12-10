@@ -156,9 +156,9 @@ pytest
 # Type checking
 mypy src
 
-# Linting
-ruff check src tests
-black src tests
+# Linting and formatting
+ruff check src tests --fix
+ruff format src tests
 ```
 
 ## Roadmap
@@ -176,6 +176,17 @@ black src tests
 ## License
 
 MIT - see LICENSE file for details
+
+## GitHub Copilot Agents
+
+This repository includes custom GitHub Copilot agents to streamline development:
+
+- **@orchestrator** - Plans tasks and coordinates between agents
+- **@developer** - Implements AdTech protocols and features
+- **@tester** - Creates comprehensive test suites
+- **@doc-writer** - Writes documentation and guides
+
+See [AGENTS.md](./AGENTS.md) for detailed usage instructions.
 
 ## Contributing
 
