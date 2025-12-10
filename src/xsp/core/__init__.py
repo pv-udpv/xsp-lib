@@ -10,6 +10,7 @@ from xsp.core.exceptions import (
     ValidationError,
     XspError,
 )
+from xsp.core.session import SessionContext, UpstreamSession, VastSession
 from xsp.core.transport import Transport, TransportType
 from xsp.core.types import Context, Headers, Metadata, Params
 from xsp.core.upstream import Upstream
@@ -23,12 +24,15 @@ __all__ = [
     "HttpDialer",
     "Metadata",
     "Params",
+    "SessionContext",
     "Transport",
     "TransportError",
     "TransportType",
     "Upstream",
     "UpstreamError",
+    "UpstreamSession",
     "UpstreamTimeout",
     "ValidationError",
+    "VastSession",
     "XspError",
 ]
