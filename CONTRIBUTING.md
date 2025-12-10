@@ -59,6 +59,8 @@ To enable MCP features:
 2. Use GitHub Copilot in your IDE
 3. MCP will automatically activate when working in this repository
 
+**For GitHub Copilot Coding Agent**: The repository includes `.github/workflows/copilot-setup-steps.yml` that automatically prepares the development environment with all dependencies, CLI tools, and MCP servers.
+
 See [MCP Integration Guide](docs/development/mcp-integration.md) for details.
 
 ### Repository Structure

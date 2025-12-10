@@ -223,6 +223,18 @@ The orchestrator agent will:
 
 MCP is automatically enabled when using GitHub Copilot with this repository. No manual setup required beyond ensuring prerequisites are met.
 
+### GitHub Copilot Agent Environment Setup
+
+The repository includes a dedicated workflow (`.github/workflows/copilot-setup-steps.yml`) that GitHub Copilot coding agent uses to prepare the development environment. This workflow:
+
+- Installs Python 3.12 with Poetry
+- Installs all project dependencies
+- Sets up Node.js for MCP servers
+- Verifies CLI tools (pytest, mypy, ruff)
+- Validates MCP configuration
+
+This ensures the agent has a fully configured environment before executing tasks.
+
 ### Verifying MCP Configuration
 
 To verify MCP is working:
