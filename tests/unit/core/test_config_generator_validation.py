@@ -98,10 +98,44 @@ def test_complex_types() -> None:
 
 
 def test_complex_types_with_signature_defaults() -> None:
-    """Test TOML generation with lists and dicts in signature defaults."""
+    """Test TOML generation with lists and dicts in signature defaults.
+    
+    Note: Using mutable defaults in production code is discouraged.
+    This test verifies that tomlkit can handle such cases if they exist.
+    """
 
     @configurable(namespace="complex2")
     class ComplexClass2:
+        def __init__(
+            self,
+            *,
+            items: list[str] | None = None,
+            numbers: list[int] | None = None,
+            config: dict[str, int] | None = None,
+        ) -> None:
+            # Best practice: create mutable defaults in method body
+            self.items = items if items is not None else ["a", "b", "c"]
+            self.numbers = numbers if numbers is not None else [1, 2, 3]
+            self.config = config if config is not None else {"x": 1, "y": 2}
+
+    # Since defaults are None in signature, they'll be converted to empty strings
+    toml_str = ConfigGenerator.generate_toml()
+    parsed = tomllib.loads(toml_str)
+
+    # All should be empty strings (None converted)
+    assert parsed["complex2"]["items"] == ""
+    assert parsed["complex2"]["numbers"] == ""
+    assert parsed["complex2"]["config"] == ""
+
+
+def test_mutable_defaults_in_signature() -> None:
+    """Test TOML generation when mutable defaults are (incorrectly) used in signature.
+    
+    This test documents behavior when encountering anti-pattern code.
+    """
+
+    @configurable(namespace="mutable")
+    class MutableDefaultsClass:
         def __init__(
             self,
             *,
@@ -115,12 +149,12 @@ def test_complex_types_with_signature_defaults() -> None:
     parsed = tomllib.loads(toml_str)
 
     # Verify structure preserved
-    assert isinstance(parsed["complex2"]["items"], list)
-    assert parsed["complex2"]["items"] == ["a", "b", "c"]
-    assert isinstance(parsed["complex2"]["numbers"], list)
-    assert parsed["complex2"]["numbers"] == [1, 2, 3]
-    assert isinstance(parsed["complex2"]["config"], dict)
-    assert parsed["complex2"]["config"] == {"x": 1, "y": 2}
+    assert isinstance(parsed["mutable"]["items"], list)
+    assert parsed["mutable"]["items"] == ["a", "b", "c"]
+    assert isinstance(parsed["mutable"]["numbers"], list)
+    assert parsed["mutable"]["numbers"] == [1, 2, 3]
+    assert isinstance(parsed["mutable"]["config"], dict)
+    assert parsed["mutable"]["config"] == {"x": 1, "y": 2}
 
 
 def test_edge_case_url_with_quotes() -> None:
