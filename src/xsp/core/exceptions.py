@@ -12,6 +12,18 @@ class UpstreamError(XspError):
 class TransportError(XspError):
     """Transport layer error."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class TransportTimeoutError(TransportError):
+    """Request timed out."""
+
+
+class TransportConnectionError(TransportError):
+    """Connection failed."""
+
 
 class UpstreamTimeout(UpstreamError):  # noqa: N818
     """Upstream request timed out."""
@@ -23,3 +35,27 @@ class DecodeError(UpstreamError):
 
 class ValidationError(XspError):
     """Schema validation failed."""
+
+
+class VastError(UpstreamError):
+    """VAST protocol error."""
+
+
+class VastTimeoutError(VastError):
+    """VAST request timed out."""
+
+
+class VastNetworkError(VastError):
+    """VAST network error."""
+
+
+class VastHttpError(VastError):
+    """VAST HTTP error."""
+
+    def __init__(self, message: str, status_code: int):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class VastParseError(VastError):
+    """VAST XML parsing error."""
