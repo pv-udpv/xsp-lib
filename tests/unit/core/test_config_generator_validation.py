@@ -99,7 +99,7 @@ def test_complex_types() -> None:
 
 def test_complex_types_with_signature_defaults() -> None:
     """Test TOML generation with lists and dicts in signature defaults.
-    
+
     Note: Using mutable defaults in production code is discouraged.
     This test verifies that tomlkit can handle such cases if they exist.
     """
@@ -130,7 +130,7 @@ def test_complex_types_with_signature_defaults() -> None:
 
 def test_mutable_defaults_in_signature() -> None:
     """Test TOML generation when mutable defaults are (incorrectly) used in signature.
-    
+
     This test documents behavior when encountering anti-pattern code.
     """
 
