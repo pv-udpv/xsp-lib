@@ -60,18 +60,21 @@ class AdResponse(TypedDict, total=False):
 # VAST-specific schemas
 
 
-class VastRequest(TypedDict, total=False):
+class VastRequest(AdRequest, total=False):
     """
     VAST-specific request schema.
 
     Extends AdRequest with VAST-specific fields.
 
-    Fields:
+    Inherited Fields (from AdRequest):
         endpoint: VAST ad server URL
         params: Query parameters (uid, ip, url, etc.)
         headers: HTTP headers
         timeout: Request timeout
         context: Macro substitution context
+        extensions: Protocol-specific extensions
+
+    VAST-specific Fields:
         user_id: User identifier (convenience field)
         ip_address: Client IP address (convenience field)
         url: Content URL (convenience field, may contain Cyrillic)
@@ -80,11 +83,6 @@ class VastRequest(TypedDict, total=False):
         validate_xml: Validate XML structure
     """
 
-    endpoint: NotRequired[str]
-    params: NotRequired[dict[str, Any]]
-    headers: NotRequired[dict[str, str]]
-    timeout: NotRequired[float]
-    context: NotRequired[dict[str, Any]]
     # VAST-specific fields
     user_id: NotRequired[str]
     ip_address: NotRequired[str]
