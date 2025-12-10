@@ -115,13 +115,13 @@ class SessionContext:
     """
 
     timestamp: int
-    """Unix timestamp in milliseconds for [TIMESTAMP] macro."""
+    """Unix timestamp in milliseconds for [TIMESTAMP] macro per VAST 4.2 §2.4.8.2."""
 
     correlator: str
-    """Unique session ID for tracking across wrapper chain."""
+    """Unique session ID for [CORRELATOR] macro per VAST 4.2 §2.4.8.2."""
 
     cachebusting: str
-    """Random value for [CACHEBUSTING] macro in URLs."""
+    """Random value for [CACHEBUSTING] macro per VAST 4.2 §2.4.8.2."""
 
     cookies: dict[str, str]
     """HTTP cookies to preserve across session requests."""
