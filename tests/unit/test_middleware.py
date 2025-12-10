@@ -124,21 +124,20 @@ async def test_middleware_can_modify_kwargs():
     assert upstream.received_kwargs == result
 
 
-class AddKeyMiddleware:
-    """Middleware that adds a specified key-value pair to kwargs."""
-
-    def __init__(self, key: str, value: str):
-        self.key = key
-        self.value = value
-
-    async def __call__(self, upstream, next_handler, **kwargs):  # type: ignore[override]
-        new_kwargs = {**kwargs, self.key: self.value}
-        return await next_handler(**new_kwargs)
-
-
 @pytest.mark.asyncio
 async def test_multiple_middleware_kwargs_merging():
     """Test that kwargs are correctly merged through multiple middleware in the chain."""
+
+    class AddKeyMiddleware:
+        """Middleware that adds a specified key-value pair to kwargs."""
+
+        def __init__(self, key: str, value: str):
+            self.key = key
+            self.value = value
+
+        async def __call__(self, upstream, next_handler, **kwargs):  # type: ignore[override]
+            new_kwargs = {**kwargs, self.key: self.value}
+            return await next_handler(**new_kwargs)
 
     upstream = RecordingUpstream()
     # Create stack with two middleware that each add different keys
