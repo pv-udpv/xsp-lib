@@ -19,11 +19,25 @@ class TransportError(XspError):
 
 
 class TransportTimeoutError(TransportError):
-    """Request timed out."""
+    """Request timed out.
+    
+    This exception never has a status code.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialize timeout error (never has a status code)."""
+        super().__init__(message, status_code=None)
 
 
 class TransportConnectionError(TransportError):
-    """Connection failed."""
+    """Connection failed.
+    
+    This exception never has a status code.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialize connection error (never has a status code)."""
+        super().__init__(message, status_code=None)
 
 
 class UpstreamTimeout(UpstreamError):

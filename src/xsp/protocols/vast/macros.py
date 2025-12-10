@@ -2,7 +2,7 @@
 
 import time
 import random
-from typing import Callable
+from typing import Callable, Any
 from urllib.parse import quote
 from dataclasses import dataclass
 
@@ -86,6 +86,13 @@ class MacroSubstitutor:
         self.version = version
         self.ssai_mode = ssai_mode
         self.custom_providers: dict[str, Callable[[], str]] = {}
+        
+        # Pre-filter macros based on version and SSAI mode for performance
+        self._filtered_macros: dict[str, MacroDefinition] = {}
+        for name, macro_def in self.MACRO_REGISTRY.items():
+            if self._is_macro_compatible(macro_def):
+                if not ssai_mode or macro_def.ssai_recommended:
+                    self._filtered_macros[name] = macro_def
 
     def register(
         self,
@@ -109,7 +116,7 @@ class MacroSubstitutor:
     def substitute(
         self,
         url: str,
-        context: dict[str, str] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """
         Substitute macros in URL.
@@ -122,41 +129,57 @@ class MacroSubstitutor:
             URL with macros replaced and URL-encoded
         """
         result = url
+        
+        # Normalize context keys to lowercase for case-insensitive lookup
+        normalized_context: dict[str, Any] = {}
+        if context:
+            normalized_context = {k.lower(): v for k, v in context.items()}
 
-        # Built-in macros from registry
-        for macro_def in self.MACRO_REGISTRY.values():
-            # Version filtering
-            if not self._is_macro_compatible(macro_def):
-                continue
-
-            # SSAI filtering
-            if self.ssai_mode and not macro_def.ssai_recommended:
-                continue
-
+        # Built-in macros from pre-filtered registry
+        for macro_def in self._filtered_macros.values():
             pattern = f"[{macro_def.name}]"
             if pattern in result:
                 if macro_def.provider:
                     value = macro_def.provider()
-                    result = result.replace(pattern, quote(value, safe=""))
-                elif context and macro_def.name.lower() in context:
-                    value = str(context[macro_def.name.lower()])
-                    result = result.replace(pattern, quote(value, safe=""))
+                    result = result.replace(pattern, quote(value, safe="-_.~"))
+                elif macro_def.name.lower() in normalized_context:
+                    value = str(normalized_context[macro_def.name.lower()])
+                    result = result.replace(pattern, quote(value, safe="-_.~"))
 
         # Custom macros
         for macro, provider in self.custom_providers.items():
             pattern = f"[{macro}]"
             if pattern in result:
                 value = provider()
-                result = result.replace(pattern, quote(value, safe=""))
+                result = result.replace(pattern, quote(value, safe="-_.~"))
 
-        # Context macros (fallback for non-registered)
-        if context:
-            for key, value in context.items():
-                pattern = f"[{key.upper()}]"
-                if pattern in result:
-                    result = result.replace(pattern, quote(str(value), safe=""))
+        # Context macros (fallback for non-registered macros only)
+        for key, value in normalized_context.items():
+            pattern = f"[{key.upper()}]"
+            if pattern in result and self._should_substitute_context_macro(key.upper()):
+                result = result.replace(pattern, quote(str(value), safe="-_.~"))
 
         return result
+
+    def _should_substitute_context_macro(self, macro_name: str) -> bool:
+        """
+        Check if a context macro should be substituted.
+        
+        Args:
+            macro_name: Uppercase macro name
+            
+        Returns:
+            True if the macro should be substituted
+            
+        Rules:
+            - Registered macros: only substitute if they passed version/SSAI filtering
+            - Context-only macros: always substitute if not registered
+        """
+        # If registered, check if it passed filtering
+        if macro_name in self.MACRO_REGISTRY:
+            return macro_name in self._filtered_macros
+        # Context-only macros are always substituted
+        return True
 
     def _is_macro_compatible(self, macro_def: MacroDefinition) -> bool:
         """
@@ -168,25 +191,12 @@ class MacroSubstitutor:
         Returns:
             True if macro can be used with current version
         """
-        # Check introduction version
-        version_order = [
-            VastVersion.V2_0,
-            VastVersion.V3_0,
-            VastVersion.V4_0,
-            VastVersion.V4_1,
-            VastVersion.V4_2,
-        ]
-
-        current_idx = version_order.index(self.version)
-        intro_idx = version_order.index(macro_def.intro_version)
-
-        if intro_idx > current_idx:
+        # per VAST 4.2 §3.5: Macro is available if introduced in or before current version,
+        # and not deprecated in or before current version.
+        if self.version < macro_def.intro_version:
             return False  # Macro not yet introduced
 
-        # Check deprecation
-        if macro_def.deprec_version:
-            deprec_idx = version_order.index(macro_def.deprec_version)
-            if deprec_idx <= current_idx:
-                return False  # Macro deprecated
+        if macro_def.deprec_version is not None and self.version >= macro_def.deprec_version:
+            return False  # Macro deprecated
 
         return True

@@ -4,7 +4,13 @@ import asyncio
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
-from xsp.core.exceptions import DecodeError, TransportError, UpstreamTimeout
+from xsp.core.exceptions import (
+    DecodeError,
+    TransportError,
+    TransportTimeoutError,
+    TransportConnectionError,
+    UpstreamTimeout,
+)
 from xsp.core.transport import Transport
 
 T = TypeVar("T")
@@ -119,6 +125,9 @@ class BaseUpstream(Generic[T]):
             raise UpstreamTimeout(
                 f"Request timed out after {effective_timeout}s"
             ) from e
+        except (TransportError, TransportTimeoutError, TransportConnectionError):
+            # Re-raise transport errors without wrapping
+            raise
         except Exception as e:
             raise TransportError(f"Transport error: {e}") from e
 

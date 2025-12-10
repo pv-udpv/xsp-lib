@@ -9,7 +9,6 @@ from xsp.core.exceptions import (
     TransportError,
     TransportTimeoutError,
     TransportConnectionError,
-    VastError,
     VastTimeoutError,
     VastNetworkError,
     VastHttpError,
@@ -127,7 +126,7 @@ class VastUpstream(BaseUpstream[str]):
             raise VastNetworkError(str(e)) from e
 
         except TransportError as e:
-            if e.status_code:
+            if e.status_code is not None:
                 raise VastHttpError(
                     f"VAST request failed with HTTP {e.status_code}",
                     status_code=e.status_code,
