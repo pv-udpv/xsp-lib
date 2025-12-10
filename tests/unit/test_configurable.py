@@ -1,7 +1,5 @@
 """Tests for configurable decorator and config generator."""
 
-import pytest
-
 from xsp.core.config_generator import ConfigGenerator
 from xsp.core.configurable import clear_configurable_registry, configurable, get_configurable_registry
 
