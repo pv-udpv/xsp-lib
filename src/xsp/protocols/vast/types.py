@@ -14,8 +14,10 @@ class VastVersion(str, Enum):
     V4_1 = "4.1"
     V4_2 = "4.2"
     
-    def __lt__(self, other: "VastVersion") -> bool:
+    def __lt__(self, other: object) -> bool:
         """Compare VAST versions for ordering."""
+        if not isinstance(other, VastVersion):
+            return NotImplemented
         version_order = [
             VastVersion.V2_0,
             VastVersion.V3_0,
@@ -25,16 +27,22 @@ class VastVersion(str, Enum):
         ]
         return version_order.index(self) < version_order.index(other)
     
-    def __le__(self, other: "VastVersion") -> bool:
+    def __le__(self, other: object) -> bool:
         """Compare VAST versions for ordering."""
+        if not isinstance(other, VastVersion):
+            return NotImplemented
         return self == other or self < other
     
-    def __gt__(self, other: "VastVersion") -> bool:
+    def __gt__(self, other: object) -> bool:
         """Compare VAST versions for ordering."""
+        if not isinstance(other, VastVersion):
+            return NotImplemented
         return not self <= other
     
-    def __ge__(self, other: "VastVersion") -> bool:
+    def __ge__(self, other: object) -> bool:
         """Compare VAST versions for ordering."""
+        if not isinstance(other, VastVersion):
+            return NotImplemented
         return not self < other
 
 

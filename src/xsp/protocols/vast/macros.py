@@ -153,10 +153,18 @@ class MacroSubstitutor:
                 value = provider()
                 result = result.replace(pattern, quote(value, safe="-_.~"))
 
-        # Context macros (fallback for non-registered)
+        # Context macros (fallback for non-registered macros only)
+        # Skip if macro is in registry but was filtered out by version/SSAI
         for key, value in normalized_context.items():
             pattern = f"[{key.upper()}]"
             if pattern in result:
+                # Check if this is a registered macro that was filtered out
+                macro_name = key.upper()
+                if macro_name in self.MACRO_REGISTRY:
+                    # Skip if it's a registered macro that was filtered
+                    if macro_name not in self._filtered_macros:
+                        continue
+                # Substitute non-registered or filtered-in context macros
                 result = result.replace(pattern, quote(str(value), safe="-_.~"))
 
         return result
