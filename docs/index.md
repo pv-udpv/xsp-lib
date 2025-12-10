@@ -18,6 +18,13 @@ Welcome to the **xsp-lib** documentation - the universal AdTech service protocol
 - [Protocol Documentation](protocols/)
 - [Standards Documentation](standards/)
 
+## Development Resources
+
+- [MCP Integration Guide](development/mcp-integration.md) - Model Context Protocol for enhanced GitHub Copilot
+- [MCP Examples](development/mcp-examples.md) - Practical examples using MCP with custom agents
+- [MCP Quick Reference](development/mcp-quick-reference.md) - Quick command reference for MCP
+- [Custom Agents](../AGENTS.md) - GitHub Copilot agent documentation
+
 ## Architecture Documentation
 
 In-depth architecture documentation:
