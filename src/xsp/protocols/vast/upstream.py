@@ -1,10 +1,20 @@
 """VAST and VMAP upstream implementations."""
 
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, quote
 
 from xsp.core.base import BaseUpstream
 from xsp.core.transport import Transport
+from xsp.core.exceptions import (
+    TransportError,
+    TransportTimeoutError,
+    TransportConnectionError,
+    VastError,
+    VastTimeoutError,
+    VastNetworkError,
+    VastHttpError,
+    VastParseError,
+)
 
 from .macros import MacroSubstitutor
 from .types import VastVersion
@@ -21,6 +31,7 @@ class VastUpstream(BaseUpstream[str]):
     - IAB macro substitution ([TIMESTAMP], [CACHEBUSTING], etc.)
     - Flexible query parameter encoding (including Cyrillic)
     - VMAP support via VmapUpstream subclass
+    - SSAI macro support with version filtering
     """
 
     def __init__(
@@ -31,6 +42,7 @@ class VastUpstream(BaseUpstream[str]):
         version: VastVersion = VastVersion.V4_2,
         enable_macros: bool = True,
         validate_xml: bool = False,
+        ssai_mode: bool = False,
         **kwargs: Any,
     ) -> None:
         """
@@ -42,6 +54,7 @@ class VastUpstream(BaseUpstream[str]):
             version: Expected VAST version
             enable_macros: Enable IAB macro substitution
             validate_xml: Validate XML structure after fetch
+            ssai_mode: Enable SSAI-recommended macro filtering
             **kwargs: Passed to BaseUpstream
         """
         super().__init__(
@@ -52,7 +65,12 @@ class VastUpstream(BaseUpstream[str]):
         )
         self.version = version
         self.validate_xml = validate_xml
-        self.macro_substitutor = MacroSubstitutor() if enable_macros else None
+        self.ssai_mode = ssai_mode
+        self.macro_substitutor = (
+            MacroSubstitutor(version=version, ssai_mode=ssai_mode)
+            if enable_macros
+            else None
+        )
 
     async def fetch(
         self,
@@ -60,6 +78,7 @@ class VastUpstream(BaseUpstream[str]):
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         context: dict[str, Any] | None = None,
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -69,10 +88,17 @@ class VastUpstream(BaseUpstream[str]):
             params: Query parameters for VAST request
             headers: HTTP headers
             context: Macro substitution context (playhead, error code, etc.)
+            timeout: Request timeout
             **kwargs: Additional arguments
 
         Returns:
             VAST XML string
+
+        Raises:
+            VastTimeoutError: Request timed out
+            VastNetworkError: Network error
+            VastHttpError: HTTP error (4xx/5xx)
+            VastParseError: XML validation failed
         """
         # Build endpoint with params and apply macro substitution
         if params:
@@ -83,22 +109,43 @@ class VastUpstream(BaseUpstream[str]):
         if self.macro_substitutor and context:
             endpoint = self.macro_substitutor.substitute(endpoint, context)
 
-        # Fetch via parent
-        xml = await super().fetch(
-            endpoint=endpoint,
-            params=None,  # Already in URL
-            headers=headers,
-            context=context,
-            **kwargs,
-        )
+        # Fetch via parent with error mapping
+        try:
+            xml = await super().fetch(
+                endpoint=endpoint,
+                params=None,  # Already in URL
+                headers=headers,
+                context=context,
+                timeout=timeout,
+                **kwargs,
+            )
+
+        except TransportTimeoutError as e:
+            raise VastTimeoutError(str(e)) from e
+
+        except TransportConnectionError as e:
+            raise VastNetworkError(str(e)) from e
+
+        except TransportError as e:
+            if e.status_code:
+                raise VastHttpError(
+                    f"VAST request failed with HTTP {e.status_code}",
+                    status_code=e.status_code,
+                ) from e
+            raise VastNetworkError(str(e)) from e
 
         # Validate if enabled
         if self.validate_xml:
-            validate_vast_xml(xml)
+            try:
+                validate_vast_xml(xml)
+            except Exception as e:
+                raise VastParseError(f"VAST XML validation failed: {e}") from e
 
         return xml
 
-    def _build_url_with_params(self, base: str, params: dict[str, Any]) -> str:
+    def _build_url_with_params(
+        self, base: str, params: dict[str, Any]
+    ) -> str:
         """
         Build URL with query parameters.
 
@@ -135,8 +182,6 @@ class VastUpstream(BaseUpstream[str]):
             # Check if we should skip encoding for this param
             if key in encoding_config and not encoding_config[key]:
                 # Don't encode value (e.g., preserve Cyrillic)
-                from urllib.parse import quote
-
                 encoded_key = quote(str(key), safe="")
                 query_parts.append(f"{encoded_key}={value}")
             else:
