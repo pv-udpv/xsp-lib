@@ -3,30 +3,17 @@
 import pytest
 
 from xsp.core.config_generator import ConfigGenerator
-
+from xsp.core.configurable import clear_configurable_registry
 
 @pytest.fixture(autouse=True)
 def setup_vast_registry():
-    """Setup: Import VAST classes to ensure they're registered."""
-    # Import to register classes
+    """Setup: Clear registry and import VAST classes to ensure they're registered.
+    Uses public API for registry reset (see CodeQL recommendation).
+    """
+    # Clear registry using public API
+    clear_configurable_registry()
+    # Import to register VAST classes
     from xsp.protocols.vast import MacroSubstitutor, VastUpstream, VmapUpstream
-    
-    # Clear any test pollution from other tests
-    from xsp.core.configurable import _CONFIGURABLE_REGISTRY
-    
-    # Only keep VAST-related namespaces
-    keys_to_keep = [k for k in _CONFIGURABLE_REGISTRY if k.startswith("vast") or k == "vmap"]
-    keys_to_remove = [k for k in _CONFIGURABLE_REGISTRY if k not in keys_to_keep]
-    for key in keys_to_remove:
-        del _CONFIGURABLE_REGISTRY[key]
-    
-    # Re-import to ensure VAST classes are registered
-    import importlib
-    import xsp.protocols.vast.upstream
-    import xsp.protocols.vast.macros
-    importlib.reload(xsp.protocols.vast.macros)
-    importlib.reload(xsp.protocols.vast.upstream)
-    
     yield
 
 
