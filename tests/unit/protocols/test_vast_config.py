@@ -23,6 +23,7 @@ def setup_vast_registry():
     yield
 
 
+
 def test_vast_config_generation():
     """Test VAST configuration template generation."""
     toml = ConfigGenerator.generate_toml()
