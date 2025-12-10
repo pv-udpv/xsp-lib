@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, AliasPath, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -123,8 +123,26 @@ class XspSettings(BaseSettings):
 
     # VAST protocol
     vast_endpoint: str = "https://ads.example.com/vast"
-    vast_timeout: float = 30.0
-    vast_enable_macros: bool = True
+    vast_timeout: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices(
+            "xsp_vast__timeout",
+            "xsp_vast_timeout",
+            AliasPath("vast", "timeout"),
+            "vast__timeout",
+            "vast_timeout",
+        ),
+    )
+    vast_enable_macros: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "xsp_vast__enable_macros",
+            "xsp_vast_enable_macros",
+            AliasPath("vast", "enable_macros"),
+            "vast__enable_macros",
+            "vast_enable_macros",
+        ),
+    )
     vast_validate_xml: bool = False
     vast_api_key: SecretStr | None = Field(
         default=None,
