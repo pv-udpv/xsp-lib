@@ -1,5 +1,6 @@
 """Tests for VAST configuration generation."""
 
+import importlib
 import pytest
 
 from xsp.core.config_generator import ConfigGenerator
@@ -12,8 +13,13 @@ def setup_vast_registry():
     """
     # Clear registry using public API
     clear_configurable_registry()
-    # Import to register VAST classes
-    from xsp.protocols.vast import MacroSubstitutor, VastUpstream, VmapUpstream
+    
+    # Reload modules to trigger re-registration of decorated classes
+    import xsp.protocols.vast.macros
+    import xsp.protocols.vast.upstream
+    importlib.reload(xsp.protocols.vast.macros)
+    importlib.reload(xsp.protocols.vast.upstream)
+    
     yield
 
 

@@ -59,7 +59,7 @@ enable_cachebusting = true   # Enable [CACHEBUSTING] macro
 ### Usage with Configuration
 
 ```python
-from xsp.protocols.vast import VastUpstream, MacroSubstitutor
+from xsp.protocols.vast import VastUpstream, MacroSubstitutor, VastVersion
 from xsp.transports.http import HttpTransport
 
 # Create upstream with configuration values
