@@ -35,8 +35,6 @@ jobs:
 
       - name: Auto-fix lint with ruff
         if: matrix.python-version == '3.12'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # run auto-fix (continue even if there are unfixable errors)
           ruff --fix . || true
