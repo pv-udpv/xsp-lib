@@ -141,6 +141,64 @@ When working with repository:
 
 ---
 
+# Development Workflow
+
+## Setup
+
+```bash
+# Install in development mode with all necessary dependencies
+pip install -e .[dev,http]
+```
+
+## Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=xsp --cov-report=term-missing
+
+# Run specific test file
+pytest tests/unit/test_specific.py
+
+# Run tests excluding network tests (default)
+pytest -m "not network"
+```
+
+## Type Checking
+
+```bash
+# Type check source code (must pass with --strict)
+mypy src
+
+# Type check specific module
+mypy src/xsp/protocols/vast
+```
+
+## Linting and Formatting
+
+```bash
+# Check code style with ruff
+ruff check src tests
+
+# Format code with black
+black src tests
+
+# Run both in sequence
+ruff check src tests && black src tests
+```
+
+## Pre-commit Checklist
+
+Before submitting changes, ensure:
+1. All tests pass: `pytest`
+2. Type checking passes: `mypy src --strict`
+3. Code is formatted: `black src tests`
+4. No linting errors: `ruff check src tests`
+
+---
+
 # Code Style Requirements
 
 - Python 3.11+ with type hints
