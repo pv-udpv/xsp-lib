@@ -3,7 +3,6 @@
 import enum
 import tomllib
 from collections import defaultdict
-from typing import Any
 
 import tomlkit
 
@@ -96,9 +95,7 @@ class ConfigGenerator:
         raise NotImplementedError("YAML generation coming in future PR")
 
     @staticmethod
-    def _group_by_namespace(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
+    def _group_by_namespace(registry: dict[str, ConfigMetadata]) -> dict[str, list[ConfigMetadata]]:
         """Group metadata by namespace."""
         grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
 
@@ -108,9 +105,7 @@ class ConfigGenerator:
         return grouped
 
     @staticmethod
-    def _group_by_class(
-        registry: dict[str, ConfigMetadata]
-    ) -> dict[str, list[ConfigMetadata]]:
+    def _group_by_class(registry: dict[str, ConfigMetadata]) -> dict[str, list[ConfigMetadata]]:
         """Group metadata by class name (lowercased)."""
         grouped: dict[str, list[ConfigMetadata]] = defaultdict(list)
 

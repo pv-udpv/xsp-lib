@@ -48,9 +48,7 @@ def main() -> None:
 
     # Generate template
     if args.format == "toml":
-        template = ConfigGenerator.generate_toml(
-            group_by=args.group_by, validate=args.validate
-        )
+        template = ConfigGenerator.generate_toml(group_by=args.group_by, validate=args.validate)
     elif args.format == "yaml":
         template = ConfigGenerator.generate_yaml(group_by=args.group_by)
     else:
