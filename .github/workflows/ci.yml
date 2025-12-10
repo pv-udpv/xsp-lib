@@ -49,6 +49,8 @@ jobs:
             git commit -m "chore(ci): auto-fix lint with ruff"
             # push back to same branch
             git push || echo "Push failed - changes may have been pushed by another job"
+            echo "Auto-fixes pushed. Exiting to allow re-triggered workflow to run."
+            exit 0
           else
             echo "No changes from ruff --fix"
           fi
