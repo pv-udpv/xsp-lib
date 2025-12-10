@@ -40,7 +40,7 @@ class XspSettings(BaseSettings):
 
     # OpenRTB protocol
     openrtb_endpoint: str = "https://bidder.example.com/openrtb"
-    openrtb_timeout: float = 100.0
+    openrtb_timeout: float = 0.3  # per OpenRTB 2.6 §4.1: typical timeout 100-300ms
     openrtb_secret_key: SecretStr | None = Field(
         default=None,
         description="OpenRTB upstream secret key",
@@ -59,5 +59,27 @@ class XspSettings(BaseSettings):
     jwt_expire_minutes: int = 30
 
 
-# Global singleton used by the library
-settings = XspSettings()
+# Lazy global settings accessor for xsp-lib.
+# Use get_settings() to access configuration. For tests, use set_settings() to override.
+_settings_instance: XspSettings | None = None
+
+def get_settings() -> XspSettings:
+    """
+    Returns the global XspSettings instance, lazily initialized.
+    For test isolation, use set_settings() to override.
+    Returns:
+        XspSettings: The current settings instance.
+    """
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = XspSettings()
+    return _settings_instance
+
+def set_settings(settings: XspSettings | None) -> None:
+    """
+    Overrides the global settings instance (for tests or custom config).
+    Args:
+        settings (XspSettings | None): The new settings instance, or None to reset.
+    """
+    global _settings_instance
+    _settings_instance = settings
