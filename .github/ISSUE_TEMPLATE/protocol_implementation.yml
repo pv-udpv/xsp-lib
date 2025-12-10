@@ -1,0 +1,218 @@
+name: 🔌 Protocol Implementation
+description: Request implementation of a new AdTech protocol
+title: "🔌 Implement [Protocol Name Version]"
+labels: ["protocol", "enhancement", "epic", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request implementation of a new AdTech protocol (VAST, OpenRTB, etc.)
+        
+        **Note:** This template is for NEW protocol implementations. For bugs in existing protocols, use the Bug Report template.
+        
+        💡 **Naming Convention:**
+        - Epic format: `🎯 OpenRTB 2.6 Implementation`
+        - Protocol issues are typically epics with multiple subtasks
+        - Child tasks should reference this issue
+        - See [NAMING_CONVENTIONS.md](../.github/NAMING_CONVENTIONS.md)
+
+  - type: input
+    id: protocol-name
+    attributes:
+      label: Protocol Name
+      description: What protocol should be implemented?
+      placeholder: "OpenRTB 2.6 / VAST 4.2 / DAAST 2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: protocol-version
+    attributes:
+      label: Protocol Version
+      description: Which version should be supported?
+      placeholder: "2.6 / 4.2 / 2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: spec-url
+    attributes:
+      label: Specification URL
+      description: Link to the official specification
+      placeholder: "https://iabtechlab.com/standards/..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol-type
+    attributes:
+      label: Protocol Type
+      description: What type of protocol is this?
+      options:
+        - Video Ad Serving (VAST-like)
+        - Real-Time Bidding (OpenRTB-like)
+        - Audio Ad Serving (DAAST-like)
+        - Common AdTech Services (CATS-like)
+        - Other / Standard
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Protocol Description
+      description: Brief description of what this protocol does
+      placeholder: OpenRTB 2.6 is a real-time bidding protocol that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: What are the primary use cases for this protocol?
+      placeholder: |
+        - Programmatic RTB ad buying
+        - Header bidding integration
+        - Server-side ad decisioning
+    validations:
+      required: true
+
+  - type: textarea
+    id: market-adoption
+    attributes:
+      label: Market Adoption
+      description: How widely is this protocol adopted?
+      placeholder: Used by 90% of DSPs and SSPs, industry standard for...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Implementation Priority
+      description: How important is this implementation?
+      options:
+        - Critical (industry standard, widely used)
+        - High (commonly used, important)
+        - Medium (niche use case)
+        - Low (experimental, future-proofing)
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Key Requirements
+      description: What are the key features that must be implemented?
+      placeholder: |
+        - Bid request/response handling
+        - JSON schema validation
+        - Extension support
+        - Macro substitution
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: What libraries or dependencies would be needed?
+      placeholder: |
+        - lxml for XML parsing
+        - orjson for fast JSON
+        - jsonschema for validation
+    validations:
+      required: false
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Backward Compatibility
+      description: Does this need to support older versions? Which ones?
+      placeholder: Should also support OpenRTB 2.5 and 2.4 for backward compatibility
+    validations:
+      required: false
+
+  - type: textarea
+    id: example-usage
+    attributes:
+      label: Example Usage
+      description: Show how this protocol would be used
+      placeholder: |
+        ```python
+        from xsp.protocols.openrtb import OpenRTBUpstream
+        
+        upstream = OpenRTBUpstream(
+            endpoint="https://bidder.example.com/bid",
+            version="2.6"
+        )
+        
+        bid_request = {
+            "id": "123",
+            "imp": [{"id": "1", "banner": {"w": 300, "h": 250}}]
+        }
+        
+        bid_response = await upstream.bid(bid_request)
+        ```
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing-strategy
+    attributes:
+      label: Testing Strategy
+      description: How should this protocol be tested?
+      placeholder: |
+        - Unit tests with IAB example requests/responses
+        - Integration tests against mock server
+        - Validation against official schemas
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: implementation-scope
+    attributes:
+      label: Implementation Scope
+      description: What should be included in the implementation?
+      options:
+        - label: Core protocol types and dataclasses
+          required: false
+        - label: Upstream implementation
+          required: false
+        - label: Schema validation
+          required: false
+        - label: Macro/template substitution
+          required: false
+        - label: Extension support
+          required: false
+        - label: Comprehensive test suite
+          required: false
+        - label: Documentation and examples
+          required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Can you help with this implementation?
+      options:
+        - label: I can implement this protocol
+          required: false
+        - label: I can provide test cases and examples
+          required: false
+        - label: I can review the implementation
+          required: false
+        - label: I can write documentation
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information about this protocol implementation
+      placeholder: This is needed for... / Related to issue #...
+    validations:
+      required: false

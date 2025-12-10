@@ -1,10 +1,8 @@
 """Tests for AdCOM media objects."""
 
 import pytest
-from pydantic import ValidationError
 
 from xsp.standards.adcom.enums import (
-    ApiFramework,
     AuditStatusCode,
     CreativeAttribute,
     EventTrackingMethod,
@@ -26,7 +24,6 @@ from xsp.standards.adcom.media import (
     Native,
     TitleAsset,
     Video,
-    VideoAsset,
 )
 
 
