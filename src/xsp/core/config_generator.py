@@ -4,7 +4,7 @@ import enum
 from collections import defaultdict
 from typing import Any
 
-from .configurable import ConfigMetadata, ParameterInfo, get_configurable_registry
+from .configurable import ConfigMetadata, get_configurable_registry
 
 
 class ConfigGenerator:

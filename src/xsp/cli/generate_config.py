@@ -10,7 +10,6 @@ import xsp.protocols.vast  # noqa: F401
 import xsp.transports.http  # noqa: F401
 
 # Add more as protocols are implemented
-
 from xsp.core.config_generator import ConfigGenerator
 
 
