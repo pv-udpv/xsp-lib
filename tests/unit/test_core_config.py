@@ -191,6 +191,8 @@ def test_xsp_settings_secrets_dir_support(
     monkeypatch.delenv("XSP_OPENRTB_SECRET_KEY", raising=False)
 
     # Create settings with custom secrets_dir
+    # Note: _secrets_dir is a valid runtime parameter from pydantic-settings BaseSettings,
+    # but it's not included in the type stubs, hence the type: ignore comment
     settings = XspSettings(_secrets_dir=str(secrets_dir))  # type: ignore[call-arg]
 
     assert settings.vast_api_key is not None
