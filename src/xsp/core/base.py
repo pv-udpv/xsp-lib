@@ -59,6 +59,7 @@ class BaseUpstream(Generic[T]):
             self.default_timeout = config.timeout
         else:
             # Backward compatibility: create config from individual params
+            # Note: max_retries and encoding_config use UpstreamConfig defaults
             self.config = UpstreamConfig(
                 endpoint=endpoint,
                 params=default_params or {},
