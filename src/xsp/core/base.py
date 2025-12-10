@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
+from xsp.core.config import UpstreamConfig
 from xsp.core.exceptions import DecodeError, TransportError, UpstreamTimeout
 from xsp.core.transport import Transport
 
@@ -26,6 +27,7 @@ class BaseUpstream(Generic[T]):
         decoder: Callable[[bytes], T],
         *,
         encoder: Callable[[Any], bytes] | None = None,
+        config: UpstreamConfig | None = None,
         endpoint: str = "",
         default_params: dict[str, Any] | None = None,
         default_headers: dict[str, str] | None = None,
@@ -38,18 +40,35 @@ class BaseUpstream(Generic[T]):
             transport: Transport implementation for I/O
             decoder: Function to decode response bytes to type T
             encoder: Optional function to encode request data to bytes
-            endpoint: Default endpoint/URL
-            default_params: Default query parameters
-            default_headers: Default headers
-            default_timeout: Default timeout in seconds
+            config: Optional UpstreamConfig object (preferred)
+            endpoint: Default endpoint/URL (used if config not provided)
+            default_params: Default query parameters (used if config not provided)
+            default_headers: Default headers (used if config not provided)
+            default_timeout: Default timeout in seconds (used if config not provided)
         """
         self.transport = transport
         self.decoder = decoder
         self.encoder = encoder
-        self.endpoint = endpoint
-        self.default_params = default_params or {}
-        self.default_headers = default_headers or {}
-        self.default_timeout = default_timeout
+
+        # Support both config object and individual params (backward compatible)
+        if config is not None:
+            self.config = config
+            self.endpoint = config.endpoint
+            self.default_params = config.params
+            self.default_headers = config.headers
+            self.default_timeout = config.timeout
+        else:
+            # Backward compatibility: create config from individual params
+            self.config = UpstreamConfig(
+                endpoint=endpoint,
+                params=default_params or {},
+                headers=default_headers or {},
+                timeout=default_timeout,
+            )
+            self.endpoint = endpoint
+            self.default_params = default_params or {}
+            self.default_headers = default_headers or {}
+            self.default_timeout = default_timeout
 
     async def fetch(
         self,
