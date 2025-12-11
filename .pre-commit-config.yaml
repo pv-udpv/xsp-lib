@@ -66,7 +66,7 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        always_run: false  # Only run if Python files changed
+        # This hook only runs when Python files change (controlled by 'types: [python]')
 
 # Global settings
 default_language_version:
