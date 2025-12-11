@@ -27,6 +27,7 @@ class OpenRTBUpstream(BaseUpstream):
             transport: HTTP transport
             endpoint: OpenRTB endpoint URL (e.g., "https://ads.example.com/openrtb")
         """
+        super().__init__()
         self.transport = transport
         self.endpoint = endpoint
 
