@@ -1,0 +1,305 @@
+name: Rebase PR Branch
+
+# Reusable workflow for rebasing PR branches with merge conflict detection
+# Can be called from other workflows or triggered manually
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        description: 'Base branch to rebase onto (e.g., main)'
+        required: false
+        type: string
+        default: 'main'
+      pr_branch:
+        description: 'PR branch to rebase'
+        required: true
+        type: string
+      auto_merge_strategy:
+        description: 'Strategy for auto-merging conflicts (ours, theirs, none)'
+        required: false
+        type: string
+        default: 'none'
+    outputs:
+      has_conflicts:
+        description: 'Whether merge conflicts were detected'
+        value: ${{ jobs.rebase.outputs.has_conflicts }}
+      conflict_files:
+        description: 'List of files with conflicts'
+        value: ${{ jobs.rebase.outputs.conflict_files }}
+      rebase_status:
+        description: 'Status of rebase operation (success, conflicts, failed)'
+        value: ${{ jobs.rebase.outputs.rebase_status }}
+  
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch to rebase onto (e.g., main)'
+        required: false
+        type: string
+        default: 'main'
+      pr_branch:
+        description: 'PR branch to rebase'
+        required: true
+        type: string
+      auto_merge_strategy:
+        description: 'Strategy for auto-merging conflicts (ours, theirs, none)'
+        required: false
+        type: choice
+        default: 'none'
+        options:
+          - none
+          - ours
+          - theirs
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    outputs:
+      has_conflicts: ${{ steps.check_conflicts.outputs.has_conflicts }}
+      conflict_files: ${{ steps.check_conflicts.outputs.conflict_files }}
+      rebase_status: ${{ steps.rebase.outputs.status }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.pr_branch }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ inputs.base_branch }}
+          echo "Base branch: ${{ inputs.base_branch }}"
+          echo "PR branch: ${{ inputs.pr_branch }}"
+      
+      - name: Check for merge conflicts
+        id: check_conflicts
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "::group::Checking for merge conflicts"
+          
+          # Try a test merge without committing
+          git merge --no-commit --no-ff origin/${{ inputs.base_branch }} 2>&1 | tee merge_output.txt
+          merge_exit_code=$?
+          
+          if [ $merge_exit_code -eq 0 ]; then
+            # No conflicts - abort the test merge
+            git merge --abort 2>/dev/null || true
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            echo "conflict_files=" >> $GITHUB_OUTPUT
+            echo "✅ No merge conflicts detected"
+            echo "::endgroup::"
+          else
+            # Conflicts detected - get list of conflicted files
+            conflict_files=$(git diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//')
+            conflict_count=$(git diff --name-only --diff-filter=U | wc -l)
+            
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+            echo "conflict_files=${conflict_files}" >> $GITHUB_OUTPUT
+            
+            echo "⚠️  Merge conflicts detected in ${conflict_count} file(s):"
+            git diff --name-only --diff-filter=U | sed 's/^/  - /'
+            
+            # Abort the test merge
+            git merge --abort 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+      
+      - name: Attempt rebase with conflict resolution
+        id: rebase
+        if: always()
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "::group::Rebasing branch"
+          
+          if [ "${{ steps.check_conflicts.outputs.has_conflicts }}" = "false" ]; then
+            echo "No conflicts detected, proceeding with rebase..."
+            
+            # Perform actual rebase
+            git rebase origin/${{ inputs.base_branch }}
+            rebase_exit_code=$?
+            
+            if [ $rebase_exit_code -eq 0 ]; then
+              echo "status=success" >> $GITHUB_OUTPUT
+              echo "✅ Rebase completed successfully"
+              echo "::endgroup::"
+              exit 0
+            else
+              git rebase --abort 2>/dev/null || true
+              echo "status=failed" >> $GITHUB_OUTPUT
+              echo "❌ Rebase failed unexpectedly"
+              echo "::endgroup::"
+              exit 1
+            fi
+          else
+            echo "Conflicts detected. Auto-merge strategy: ${{ inputs.auto_merge_strategy }}"
+            
+            if [ "${{ inputs.auto_merge_strategy }}" = "none" ]; then
+              echo "status=conflicts" >> $GITHUB_OUTPUT
+              echo "⚠️  Manual conflict resolution required"
+              echo "::endgroup::"
+              exit 0
+            else
+              # Attempt automatic conflict resolution
+              echo "Attempting automatic conflict resolution..."
+              git rebase origin/${{ inputs.base_branch }}
+              rebase_exit_code=$?
+              
+              if [ $rebase_exit_code -ne 0 ]; then
+                # Apply merge strategy
+                conflict_files="${{ steps.check_conflicts.outputs.conflict_files }}"
+                IFS=',' read -ra files <<< "$conflict_files"
+                
+                for file in "${files[@]}"; do
+                  if [ -f "$file" ]; then
+                    if [ "${{ inputs.auto_merge_strategy }}" = "ours" ]; then
+                      echo "  Resolving $file using 'ours' strategy"
+                      git checkout --ours "$file"
+                    elif [ "${{ inputs.auto_merge_strategy }}" = "theirs" ]; then
+                      echo "  Resolving $file using 'theirs' strategy"
+                      git checkout --theirs "$file"
+                    fi
+                    git add "$file"
+                  fi
+                done
+                
+                git rebase --continue
+                rebase_final_code=$?
+                
+                if [ $rebase_final_code -eq 0 ]; then
+                  echo "status=success" >> $GITHUB_OUTPUT
+                  echo "✅ Rebase completed with automatic conflict resolution"
+                  echo "::endgroup::"
+                  exit 0
+                else
+                  git rebase --abort 2>/dev/null || true
+                  echo "status=conflicts" >> $GITHUB_OUTPUT
+                  echo "⚠️  Automatic conflict resolution failed"
+                  echo "::endgroup::"
+                  exit 0
+                fi
+              else
+                echo "status=success" >> $GITHUB_OUTPUT
+                echo "✅ Rebase completed successfully"
+                echo "::endgroup::"
+                exit 0
+              fi
+            fi
+          fi
+      
+      - name: Push rebased branch
+        if: steps.rebase.outputs.status == 'success'
+        run: |
+          echo "::group::Pushing rebased branch"
+          git push --force-with-lease origin ${{ inputs.pr_branch }}
+          echo "✅ Rebased branch pushed successfully"
+          echo "::endgroup::"
+      
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Rebase Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Base branch:** \`${{ inputs.base_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**PR branch:** \`${{ inputs.pr_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** \`${{ steps.rebase.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_conflicts.outputs.has_conflicts }}" = "true" ]; then
+            echo "### ⚠️ Merge Conflicts Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Conflicts found in the following files:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.check_conflicts.outputs.conflict_files }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ steps.rebase.outputs.status }}" = "success" ]; then
+              echo "✅ Conflicts were automatically resolved using the \`${{ inputs.auto_merge_strategy }}\` strategy." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### Manual Resolution Required" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "To resolve conflicts manually:" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "git fetch origin ${{ inputs.base_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "git rebase origin/${{ inputs.base_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "# Resolve conflicts in your editor" >> $GITHUB_STEP_SUMMARY
+              echo "git add <resolved-files>" >> $GITHUB_STEP_SUMMARY
+              echo "git rebase --continue" >> $GITHUB_STEP_SUMMARY
+              echo "git push --force-with-lease origin ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ No merge conflicts detected." >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ steps.rebase.outputs.status }}" = "success" ]; then
+              echo "✅ Branch rebased successfully." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      
+      - name: Comment on PR (if applicable)
+        if: always() && github.event_name != 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.rebase.outputs.status }}';
+            const hasConflicts = '${{ steps.check_conflicts.outputs.has_conflicts }}' === 'true';
+            const conflictFiles = '${{ steps.check_conflicts.outputs.conflict_files }}'.split(',').filter(f => f);
+            
+            let body = '## 🔄 Rebase Status\n\n';
+            
+            if (status === 'success') {
+              body += '✅ **Branch rebased successfully!**\n\n';
+              body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\`.\n`;
+              
+              if (hasConflicts) {
+                body += `\n⚠️ Conflicts were automatically resolved using the \`${{ inputs.auto_merge_strategy }}\` strategy.\n`;
+              }
+            } else if (status === 'conflicts') {
+              body += '⚠️ **Manual conflict resolution required**\n\n';
+              body += `Merge conflicts detected in ${conflictFiles.length} file(s):\n\n`;
+              conflictFiles.forEach(file => {
+                body += `- \`${file}\`\n`;
+              });
+              body += '\n### How to resolve:\n\n';
+              body += '```bash\n';
+              body += `git fetch origin ${{ inputs.base_branch }}\n`;
+              body += `git rebase origin/${{ inputs.base_branch }}\n`;
+              body += '# Resolve conflicts in your editor\n';
+              body += 'git add <resolved-files>\n';
+              body += 'git rebase --continue\n';
+              body += `git push --force-with-lease origin ${{ inputs.pr_branch }}\n`;
+              body += '```\n';
+            } else {
+              body += '❌ **Rebase failed**\n\n';
+              body += 'The rebase operation failed unexpectedly. Please check the workflow logs for details.\n';
+            }
+            
+            // Try to find the PR number
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${{ inputs.pr_branch }}`,
+              state: 'open'
+            });
+            
+            if (prs.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prs.data[0].number,
+                body: body
+              });
+            }

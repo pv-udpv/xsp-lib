@@ -1,0 +1,76 @@
+name: Auto-Rebase PR on Main Update
+
+# Example workflow showing how to use the reusable rebase workflow
+# This automatically rebases PR branches when main is updated
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to rebase (optional, will rebase all open PRs if not specified)'
+        required: false
+        type: string
+
+jobs:
+  find-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      pr_branches: ${{ steps.get_prs.outputs.branches }}
+    
+    steps:
+      - name: Get open PRs
+        id: get_prs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ inputs.pr_number }}';
+            let prs;
+            
+            if (prNumber) {
+              // Get specific PR
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: parseInt(prNumber)
+              });
+              prs = { data: [pr.data] };
+            } else {
+              // Get all open PRs
+              prs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100
+              });
+            }
+            
+            // Filter PRs that need rebasing (not up to date with main)
+            const branches = prs.data
+              .filter(pr => pr.head.ref !== 'main')
+              .map(pr => pr.head.ref);
+            
+            core.setOutput('branches', JSON.stringify(branches));
+            console.log(`Found ${branches.length} PR(s) to potentially rebase:`, branches);
+
+  rebase-prs:
+    needs: find-prs
+    if: needs.find-prs.outputs.pr_branches != '[]'
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.find-prs.outputs.pr_branches) }}
+      max-parallel: 1  # Rebase one at a time to avoid conflicts
+      fail-fast: false  # Continue even if one rebase fails
+    
+    uses: ./.github/workflows/rebase-pr-branch.yml
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      base_branch: 'main'
+      pr_branch: ${{ matrix.branch }}
+      auto_merge_strategy: 'none'  # Don't auto-resolve conflicts
