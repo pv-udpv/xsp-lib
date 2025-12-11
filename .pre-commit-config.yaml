@@ -47,7 +47,7 @@ repos:
     hooks:
       - id: mypy
         name: MyPy type check
-        args: [--strict, --config-file=pyproject.toml]
+        args: [--strict]
         additional_dependencies:
           - types-PyYAML
           - lxml-stubs
