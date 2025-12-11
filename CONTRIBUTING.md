@@ -37,14 +37,33 @@ cd xsp-lib
 # Install in development mode
 pip install -e .[dev,http]
 
+# ⚡ IMPORTANT: Install pre-commit hooks (auto-runs quality checks)
+pre-commit install
+
 # Verify installation
 pytest --version
 mypy --version
 ruff --version
+pre-commit --version
 
-# Optional: Verify MCP setup (for GitHub Copilot enhancement)
-node --version  # Should be v16+ for MCP servers
+# Optional: Run all checks manually
+pre-commit run --all-files
 ```
+
+### ⚡ Pre-commit Hooks (Essential!)
+
+**Pre-commit hooks automatically check and fix your code before each commit.**
+
+After installation (`pre-commit install`), every `git commit` will:
+- ✅ Auto-format code with `ruff format`
+- ✅ Auto-fix lint issues with `ruff check --fix`
+- ✅ Check types with `mypy --strict`
+- ✅ Run unit tests with `pytest`
+- ✅ Fix whitespace, YAML syntax, etc.
+
+**This means you get instant feedback and auto-fixes WITHOUT waiting for CI!**
+
+📖 **Detailed guide**: [.github/hooks/README.md](.github/hooks/README.md)
 
 ### GitHub Copilot with MCP (Optional)
 
@@ -100,6 +119,9 @@ xsp-lib/
 git clone https://github.com/YOUR-USERNAME/xsp-lib.git
 cd xsp-lib
 
+# Install pre-commit hooks (essential!)
+pre-commit install
+
 # Create a feature branch
 git checkout -b feature/your-feature-name
 # or
@@ -113,22 +135,31 @@ git checkout -b fix/your-bug-fix
 - Update documentation as needed
 - Commit frequently with clear messages
 
+**Pre-commit hooks will automatically check and fix code on each commit!**
+
 ### 4. Test Your Changes
 
+**Pre-commit hooks automatically run all checks before each commit.**
+
+No manual commands needed! Just `git commit` and hooks will:
+1. Auto-format with ruff
+2. Auto-fix lint issues
+3. Check types with mypy
+4. Run unit tests
+5. Validate YAML/TOML
+
+**Manual testing (optional):**
 ```bash
-# Run tests
+# Run all checks manually
+pre-commit run --all-files
+
+# Run specific checks
 pytest
-
-# Run tests with coverage
-pytest --cov=xsp --cov-report=term-missing
-
-# Type check
 mypy src --strict
-
-# Lint and format
-ruff check src tests --fix
-ruff format src tests
+ruff check src tests
 ```
+
+**Troubleshooting**: See [.github/hooks/README.md](.github/hooks/README.md)
 
 ### 5. Submit Pull Request
 
@@ -168,10 +199,11 @@ Use the **🤖 Copilot Task** template for well-defined tasks suitable for GitHu
 
 ### PR Requirements
 
-1. **Tests**: All new code must have tests
-2. **Type Hints**: Use type hints everywhere (mypy --strict)
-3. **Documentation**: Update docstrings and docs
-4. **Quality**: Pass all checks (tests, linting, type checking)
+1. **✅ Pre-commit installed**: Run `pre-commit install` (hooks auto-check everything!)
+2. **Tests**: All new code must have tests
+3. **Type Hints**: Use type hints everywhere (mypy --strict)
+4. **Documentation**: Update docstrings and docs
+5. **Quality**: Pass all checks (automated by pre-commit)
 
 ### PR Template
 
@@ -210,8 +242,8 @@ chore(ci): update GitHub Actions workflow
 - **Type Hints**: Required everywhere
 - **Async/Await**: Use for all I/O operations
 - **Line Length**: 100 characters
-- **Formatter**: ruff format
-- **Linter**: ruff check
+- **Formatter**: ruff format (auto-applied by pre-commit)
+- **Linter**: ruff check (auto-fixed by pre-commit)
 
 ### Type Safety
 
@@ -294,8 +326,8 @@ async def resolve_wrapper(self, vast_url: str) -> VastInline:
 ### Test Requirements
 
 - **Coverage**: Aim for >85% coverage
-- **Unit Tests**: Test individual functions/methods
-- **Integration Tests**: Test end-to-end workflows
+- **Unit Tests**: Test individual functions/methods (fast, run by pre-commit)
+- **Integration Tests**: Test end-to-end workflows (slow, run in CI only)
 - **IAB Examples**: Use official spec examples
 
 ### Test Structure
@@ -321,6 +353,10 @@ async def test_vast_wrapper_resolution():
 ### Running Tests
 
 ```bash
+# Pre-commit runs unit tests automatically on commit!
+
+# Manual testing:
+
 # All tests
 pytest
 
@@ -391,17 +427,27 @@ Example:
 
 Before submitting your PR:
 
-- [ ] All tests pass: `pytest`
-- [ ] Type checking passes: `mypy src --strict`
-- [ ] Code is formatted: `ruff format src tests`
-- [ ] No linting errors: `ruff check src tests`
-- [ ] Coverage maintained/improved
-- [ ] Documentation updated
+### ✅ Automated by Pre-commit Hooks
+- [ ] **Pre-commit installed**: `pre-commit install` (required!)
+- [ ] Auto-formatting applied: `ruff format` ✅
+- [ ] Lint issues fixed: `ruff check --fix` ✅
+- [ ] Type checking passed: `mypy --strict` ✅
+- [ ] Unit tests passed: `pytest tests/unit/` ✅
+- [ ] Whitespace/YAML/TOML validated ✅
+
+**Note**: Items with ✅ are automatically checked/fixed on every `git commit`!
+
+### 📋 Manual Checklist
+- [ ] Coverage maintained/improved (`pytest --cov`)
+- [ ] Integration tests pass (if applicable)
+- [ ] Documentation updated (docstrings, guides)
 - [ ] CHANGELOG updated (for notable changes)
 - [ ] Commit messages follow conventions
+- [ ] PR template filled out completely
 
 ## Getting Help
 
+- **Pre-commit Guide**: [.github/hooks/README.md](.github/hooks/README.md)
 - **Documentation**: https://xsp-lib.readthedocs.io
 - **Discussions**: https://github.com/pv-udpv/xsp-lib/discussions
 - **Issues**: https://github.com/pv-udpv/xsp-lib/issues
