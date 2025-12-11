@@ -12,6 +12,18 @@ class UpstreamError(XspError):
 class TransportError(XspError):
     """Transport layer error."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class TransportTimeoutError(TransportError):
+    """Request timed out."""
+
+
+class TransportConnectionError(TransportError):
+    """Connection failed."""
+
 
 class UpstreamTimeout(UpstreamError):  # noqa: N818
     """Upstream request timed out."""

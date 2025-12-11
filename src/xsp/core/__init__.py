@@ -33,6 +33,7 @@ __all__ = [
     "TransportError",
     "TransportType",
     "Upstream",
+    "UpstreamConfig",
     "UpstreamError",
     "UpstreamSession",
     "UpstreamTimeout",

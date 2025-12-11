@@ -2,8 +2,8 @@
 
 import pytest
 
-from xsp.core.configurable import configurable, get_configurable_registry
 from xsp.core.config_generator import ConfigGenerator
+from xsp.core.configurable import configurable, get_configurable_registry
 
 
 def test_configurable_decorator() -> None:
