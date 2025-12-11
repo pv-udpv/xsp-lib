@@ -3,10 +3,8 @@
 import pytest
 from pydantic import ValidationError
 
-from xsp.standards.adcom.context import App, Device, Dooh, Geo, Regs, Site, User
-from xsp.standards.adcom.enums import DeviceType, LocationType
-from xsp.standards.adcom.media import Ad, Display, Video
-from xsp.standards.adcom.placement import DisplayPlacement, Placement, VideoPlacement
+from xsp.standards.adcom.context import App, Dooh, Site
+from xsp.standards.adcom.enums import DeviceType
 from xsp.standards.adcom.validation import (
     validate_ad,
     validate_context,

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://schema.openai.com/mcp/v1",
+  "version": "1.0",
+  "description": "MCP configuration for xsp-lib AdTech protocol library development",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "File system access for repository navigation and code reading",
+      "capabilities": ["read_file", "write_file", "list_directory", "search_files"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "description": "GitHub API access for issues, PRs, and repository context",
+      "capabilities": ["read_issues", "read_pull_requests", "search_code"]
+    },
+    "python": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-python"],
+      "description": "Python development tools for code analysis and testing",
+      "capabilities": ["run_python", "analyze_code", "run_tests"]
+    },
+    "web": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-web"],
+      "description": "Web access for fetching IAB specifications and documentation",
+      "capabilities": ["fetch_url", "search_web"],
+      "allowedDomains": [
+        "iabtechlab.com",
+        "github.com",
+        "docs.python.org",
+        "openrtb.github.io"
+      ]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent memory for context across sessions",
+      "capabilities": ["store_context", "retrieve_context", "semantic_search"]
+    },
+    "rope-refactor": {
+      "command": "uvx",
+      "args": ["python-lsp-server"],
+      "description": "Python refactoring server using Rope for intelligent code transformations",
+      "capabilities": ["rename", "extract_method", "extract_variable", "inline", "organize_imports"],
+      "env": {
+        "PYLSP_ROPE_ENABLED": "true"
+      }
+    }
+  },
+  "contextProviders": {
+    "repository": {
+      "type": "filesystem",
+      "paths": [
+        "src/xsp/**/*.py",
+        "tests/**/*.py",
+        "docs/**/*.md",
+        "pyproject.toml",
+        "README.md"
+      ],
+      "description": "Repository code and documentation context"
+    },
+    "specifications": {
+      "type": "web",
+      "urls": [
+        "https://iabtechlab.com/standards/vast/",
+        "https://iabtechlab.com/standards/openrtb/",
+        "https://github.com/InteractiveAdvertisingBureau/openrtb",
+        "https://github.com/InteractiveAdvertisingBureau/VAST"
+      ],
+      "description": "IAB AdTech specifications and standards"
+    },
+    "development": {
+      "type": "github",
+      "repository": "${GITHUB_REPOSITORY:-pv-udpv/xsp-lib}",
+      "includes": ["issues", "pull_requests", "discussions"],
+      "description": "Project development context from GitHub"
+    }
+  },
+  "toolEnhancements": {
+    "codeGeneration": {
+      "enabled": true,
+      "preferences": {
+        "typeHints": "strict",
+        "asyncPatterns": "modern",
+        "docstringStyle": "google",
+        "testFramework": "pytest"
+      }
+    },
+    "protocolAnalysis": {
+      "enabled": true,
+      "supportedProtocols": [
+        "VAST",
+        "VPAID",
+        "VMAP",
+        "OpenRTB",
+        "DAAST",
+        "CATS",
+        "AdCOM"
+      ],
+      "specificationVersions": {
+        "VAST": ["3.0", "4.0", "4.1", "4.2"],
+        "OpenRTB": ["2.5", "2.6", "3.0"]
+      }
+    },
+    "testGeneration": {
+      "enabled": true,
+      "preferences": {
+        "coverageTarget": 85,
+        "asyncTests": true,
+        "fixtures": true,
+        "parametrized": true
+      }
+    }
+  },
+  "customAgentEnhancements": {
+    "developer": {
+      "mcpServers": ["filesystem", "github", "python", "web", "rope-refactor"],
+      "additionalContext": [
+        "IAB specification compliance requirements",
+        "Python async/await best practices",
+        "Type safety with mypy --strict"
+      ]
+    },
+    "tester": {
+      "mcpServers": ["filesystem", "python"],
+      "additionalContext": [
+        "pytest fixtures and parametrization",
+        "Async test patterns",
+        "Protocol validation test cases"
+      ]
+    },
+    "doc-writer": {
+      "mcpServers": ["filesystem", "web"],
+      "additionalContext": [
+        "Technical writing best practices",
+        "API documentation standards",
+        "IAB specification references"
+      ]
+    },
+    "orchestrator": {
+      "mcpServers": ["filesystem", "github", "memory"],
+      "additionalContext": [
+        "Project architecture and phases",
+        "Task dependencies and prioritization",
+        "Team coordination patterns"
+      ]
+    }
+  },
+  "securityPolicies": {
+    "allowedOperations": [
+      "read_repository",
+      "write_repository",
+      "read_github",
+      "fetch_specifications",
+      "run_tests",
+      "analyze_code",
+      "refactor_code"
+    ],
+    "restrictedOperations": [
+      "modify_github_issues",
+      "create_pull_requests",
+      "publish_packages",
+      "modify_secrets"
+    ],
+    "dataRetention": {
+      "memory": "session",
+      "logs": "24h"
+    }
+  }
+}
