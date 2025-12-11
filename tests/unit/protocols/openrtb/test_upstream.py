@@ -151,7 +151,6 @@ async def test_request_with_params(
     # Verify params were passed in metadata
     call_args = mock_transport.request.call_args
     metadata = call_args.kwargs["metadata"]
-    import json
     params = json.loads(metadata["_params"])
     assert params == {"debug": "true", "format": "json"}
 
@@ -343,7 +342,6 @@ async def test_request_applies_defaults(
     # Verify defaults were applied by decoding the encoded payload
     call_args = mock_transport.request.call_args
     payload_bytes = call_args.kwargs["payload"]
-    import json
     payload = json.loads(payload_bytes.decode("utf-8"))
     assert payload["test"] == 1
     assert payload["at"] == 1
@@ -378,7 +376,6 @@ async def test_request_respects_existing_fields(
     # Verify existing fields were not overridden by decoding the payload
     call_args = mock_transport.request.call_args
     payload_bytes = call_args.kwargs["payload"]
-    import json
     payload = json.loads(payload_bytes.decode("utf-8"))
     assert payload["test"] == 0  # Not overridden
     assert payload["at"] == 2  # Not overridden
