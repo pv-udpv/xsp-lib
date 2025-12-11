@@ -2,7 +2,11 @@ name: Collect Linting Fixes
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [synchronize]  # Only on new commits pushed (not on open)
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
 
 jobs:
   collect-fixes:
