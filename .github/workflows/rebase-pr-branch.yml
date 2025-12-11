@@ -160,20 +160,34 @@ jobs:
               if [ $rebase_exit_code -ne 0 ]; then
                 # Apply merge strategy
                 conflict_files="${{ steps.check_conflicts.outputs.conflict_files }}"
-                IFS=',' read -ra files <<< "$conflict_files"
                 
-                for file in "${files[@]}"; do
-                  if [ -f "$file" ]; then
-                    if [ "${{ inputs.auto_merge_strategy }}" = "ours" ]; then
-                      echo "  Resolving $file using 'ours' strategy"
-                      git checkout --ours "$file"
-                    elif [ "${{ inputs.auto_merge_strategy }}" = "theirs" ]; then
-                      echo "  Resolving $file using 'theirs' strategy"
-                      git checkout --theirs "$file"
+                # Check if conflict_files is not empty
+                if [ -n "$conflict_files" ]; then
+                  IFS=',' read -ra files <<< "$conflict_files"
+                  
+                  # Filter out empty strings and process files
+                  for file in "${files[@]}"; do
+                    # Skip empty entries
+                    if [ -z "$file" ]; then
+                      continue
                     fi
-                    git add "$file"
-                  fi
-                done
+                    
+                    if [ -f "$file" ]; then
+                      if [ "${{ inputs.auto_merge_strategy }}" = "ours" ]; then
+                        echo "  Resolving $file using 'ours' strategy"
+                        git checkout --ours "$file"
+                      elif [ "${{ inputs.auto_merge_strategy }}" = "theirs" ]; then
+                        echo "  Resolving $file using 'theirs' strategy"
+                        git checkout --theirs "$file"
+                      fi
+                      git add "$file"
+                    else
+                      echo "  Warning: Conflict file $file not found"
+                    fi
+                  done
+                else
+                  echo "  Warning: No conflict files list available"
+                fi
                 
                 git rebase --continue
                 rebase_final_code=$?

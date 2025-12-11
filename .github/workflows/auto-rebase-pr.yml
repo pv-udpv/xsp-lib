@@ -49,7 +49,9 @@ jobs:
               });
             }
             
-            // Filter PRs that need rebasing (not up to date with main)
+            // Filter PRs that are not from main branch
+            // Note: Further filtering for PRs that need rebasing could be added
+            // by comparing commit SHAs or checking PR update status
             const branches = prs.data
               .filter(pr => pr.head.ref !== 'main')
               .map(pr => pr.head.ref);

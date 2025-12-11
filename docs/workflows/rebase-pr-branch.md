@@ -307,4 +307,4 @@ For questions or issues with the rebase workflow:
 1. Check the workflow logs in the Actions tab
 2. Review this documentation
 3. Open an issue with the `workflow` label
-4. Tag `@pv-udpv` for workflow-related questions
+4. Tag workflow maintainers for workflow-related questions
