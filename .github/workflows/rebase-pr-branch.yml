@@ -110,12 +110,15 @@ jobs:
         id: setup_branch
         run: |
           if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
-            staging_branch="rebase/${{ inputs.pr_branch }}"
+            # Sanitize branch name by replacing slashes with dashes
+            sanitized_branch=$(echo "${{ inputs.pr_branch }}" | sed 's/\//-/g')
+            staging_branch="rebase/${sanitized_branch}"
             echo "staging_branch=${staging_branch}" >> $GITHUB_OUTPUT
             echo "working_branch=${staging_branch}" >> $GITHUB_OUTPUT
             
             echo "::group::Creating staging branch"
             echo "🔀 Creating staging branch: ${staging_branch}"
+            echo "   (from PR branch: ${{ inputs.pr_branch }})"
             
             # Create staging branch from current PR branch
             git checkout -b "${staging_branch}"
@@ -280,8 +283,9 @@ jobs:
               git push --force-with-lease origin "${staging_branch}:${{ inputs.pr_branch }}"
               echo "✅ Staging branch applied to PR branch: ${{ inputs.pr_branch }}"
               
-              # Optionally delete staging branch after successful apply
-              git push origin --delete "${staging_branch}" 2>/dev/null || echo "ℹ️  Keeping staging branch for reference"
+              # Keep staging branch for reference
+              echo "ℹ️  Staging branch ${staging_branch} kept for reference"
+              echo "   Delete manually if needed: git push origin --delete ${staging_branch}"
             else
               echo ""
               echo "ℹ️  Staging branch created but not auto-applied to PR branch"
@@ -290,6 +294,9 @@ jobs:
               echo "  git checkout ${{ inputs.pr_branch }}"
               echo "  git reset --hard origin/${staging_branch}"
               echo "  git push --force-with-lease origin ${{ inputs.pr_branch }}"
+              echo ""
+              echo "To delete staging branch after applying:"
+              echo "  git push origin --delete ${staging_branch}"
             fi
           else
             # Direct push to PR branch

@@ -59,7 +59,42 @@ jobs:
       auto_apply_staging: false  # Review before applying
 ```
 
-### Manual Trigger
+### CLI Usage (Recommended)
+
+Use the helper script for easy command-line access:
+
+```bash
+# Rebase a PR by number
+./scripts/rebase-pr.sh --pr 123
+
+# Rebase with staging branch (safe mode)
+./scripts/rebase-pr.sh --pr 123 --staging
+
+# Rebase with auto-apply
+./scripts/rebase-pr.sh --pr 123 --staging --auto-apply
+```
+
+Or use GitHub CLI directly:
+
+```bash
+# Basic rebase
+gh workflow run rebase-pr-branch.yml -f pr_branch="feature/my-branch"
+
+# With all options
+gh workflow run rebase-pr-branch.yml \
+  -f pr_branch="feature/my-branch" \
+  -f base_branch="main" \
+  -f use_staging_branch=true \
+  -f auto_apply_staging=false \
+  -f auto_merge_strategy="none"
+
+# Monitor the workflow
+gh run watch
+```
+
+See [`scripts/README.md`](../../scripts/README.md) for more CLI examples.
+
+### Manual Trigger via UI
 
 Trigger manually from the GitHub Actions UI:
 
@@ -111,7 +146,9 @@ jobs:
 
 The staging branch feature provides an extra safety layer:
 
-- **`use_staging_branch: true`**: Creates a temporary branch (e.g., `rebase/feature-branch`) for the rebase operation
+- **`use_staging_branch: true`**: Creates a temporary branch for the rebase operation
+  - Branch naming: `rebase/<sanitized-pr-branch-name>`
+  - Slashes in PR branch names are replaced with dashes (e.g., `feature/api/auth` → `rebase/feature-api-auth`)
 - **`auto_apply_staging: false`**: Keeps the staging branch separate, allowing manual review before applying
 - **`auto_apply_staging: true`**: Automatically applies the staging branch to the PR branch if rebase succeeds
 
@@ -120,6 +157,7 @@ The staging branch feature provides an extra safety layer:
 - Review the rebased code in staging branch before applying
 - Safe rollback if issues are found
 - Can be tested in CI/CD before merging
+- Staging branch is kept for reference (manual deletion if needed)
 
 ## Outputs
 
