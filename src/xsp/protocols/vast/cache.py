@@ -107,8 +107,14 @@ class VastCacheLayer:
             ttl = ttl_seconds if ttl_seconds is not None else self.config.default_ttl_seconds
             expires_at = time.time() + ttl
 
-            # Estimate size
-            size_bytes = len(str(value))
+            # Estimate size - use a simple estimation based on string length
+            # For more accurate sizing, consider using sys.getsizeof() or
+            # a custom size calculation based on the value type
+            try:
+                size_bytes = len(str(value))
+            except Exception:
+                # Fallback if str() conversion fails
+                size_bytes = 0
 
             entry = CacheEntry(value=value, expires_at=expires_at, size_bytes=size_bytes)
 

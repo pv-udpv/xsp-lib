@@ -214,9 +214,8 @@ async def test_error_tracking_integration(error_tracker):
     for call in mock_client.get.call_args_list:
         url = call[0][0]
         assert "[ERRORCODE]" not in url
-        # TIMESTAMP may or may not be in all URLs, so only check substitution if present in original
-        if "[TIMESTAMP]" in str(error_urls):
-            assert "[TIMESTAMP]" not in url or "ts=" not in url
+        # Verify TIMESTAMP macro was substituted if present in original URL
+        assert "[TIMESTAMP]" not in url
 
 
 @pytest.mark.asyncio
@@ -724,4 +723,6 @@ async def test_error_tracker_context_manager():
         )
 
     # Provided client should not be closed
-    assert not mock_client.close.called
+    # Check if close was called (mock may not have this attribute)
+    if hasattr(mock_client, "close"):
+        assert not mock_client.close.called

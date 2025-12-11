@@ -68,7 +68,7 @@ class VastErrorTracker:
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_fires)
         self.logger = logging.getLogger(__name__)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "VastErrorTracker":
         if self._owns_client:
             self._http_client = aiohttp.ClientSession()
         return self
