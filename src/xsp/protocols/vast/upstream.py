@@ -5,6 +5,15 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 from xsp.core.base import BaseUpstream
 from xsp.core.configurable import configurable
+from xsp.core.exceptions import (
+    TransportConnectionError,
+    TransportError,
+    TransportTimeoutError,
+    VastHttpError,
+    VastNetworkError,
+    VastParseError,
+    VastTimeoutError,
+)
 from xsp.core.transport import Transport
 
 from .macros import MacroSubstitutor
@@ -33,6 +42,7 @@ class VastUpstream(BaseUpstream[str]):
         version: VastVersion = VastVersion.V4_2,
         enable_macros: bool = True,
         validate_xml: bool = False,
+        ssai_mode: bool = False,
         **kwargs: Any,
     ) -> None:
         """
@@ -44,6 +54,7 @@ class VastUpstream(BaseUpstream[str]):
             version: Expected VAST version
             enable_macros: Enable IAB macro substitution
             validate_xml: Validate XML structure after fetch
+            ssai_mode: Enable SSAI mode for macro filtering
             **kwargs: Passed to BaseUpstream
         """
         super().__init__(
@@ -54,7 +65,11 @@ class VastUpstream(BaseUpstream[str]):
         )
         self.version = version
         self.validate_xml = validate_xml
-        self.macro_substitutor = MacroSubstitutor() if enable_macros else None
+        self.macro_substitutor = (
+            MacroSubstitutor(version=version, ssai_mode=ssai_mode)
+            if enable_macros
+            else None
+        )
 
     async def fetch(
         self,
@@ -62,6 +77,7 @@ class VastUpstream(BaseUpstream[str]):
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         context: dict[str, Any] | None = None,
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -71,6 +87,7 @@ class VastUpstream(BaseUpstream[str]):
             params: Query parameters for VAST request
             headers: HTTP headers
             context: Macro substitution context (playhead, error code, etc.)
+            timeout: Request timeout in seconds
             **kwargs: Additional arguments
 
         Returns:
@@ -85,18 +102,32 @@ class VastUpstream(BaseUpstream[str]):
         if self.macro_substitutor and context:
             endpoint = self.macro_substitutor.substitute(endpoint, context)
 
-        # Fetch via parent
-        xml = await super().fetch(
-            endpoint=endpoint,
-            params=None,  # Already in URL
-            headers=headers,
-            context=context,
-            **kwargs,
-        )
+        # Fetch via parent with error mapping
+        try:
+            xml = await super().fetch(
+                endpoint=endpoint,
+                params=None,  # Already in URL
+                headers=headers,
+                context=context,
+                timeout=timeout,
+                **kwargs,
+            )
+        except TransportTimeoutError as e:
+            raise VastTimeoutError(str(e)) from e
+        except TransportConnectionError as e:
+            raise VastNetworkError(str(e)) from e
+        except TransportError as e:
+            if e.status_code is not None:
+                raise VastHttpError(str(e), e.status_code) from e
+            else:
+                raise VastNetworkError(str(e)) from e
 
         # Validate if enabled
         if self.validate_xml:
-            validate_vast_xml(xml)
+            try:
+                validate_vast_xml(xml)
+            except Exception as e:
+                raise VastParseError(f"VAST XML validation failed: {e}") from e
 
         return xml
 

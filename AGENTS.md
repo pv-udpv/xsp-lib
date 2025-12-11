@@ -2,6 +2,17 @@
 
 This repository uses custom GitHub Copilot agents to streamline development, testing, and documentation workflows. These agents are specialized AI assistants configured for specific tasks in the xsp-lib project.
 
+## 🚀 Enhanced with Model Context Protocol (MCP)
+
+This repository is **MCP-enabled**, which means GitHub Copilot agents have access to:
+- **IAB AdTech specifications** (VAST, OpenRTB, etc.) via web access
+- **Repository code and tests** via intelligent filesystem navigation
+- **GitHub context** (issues, PRs, discussions) for better task understanding
+- **Python tooling** for running tests and analyzing code
+- **Persistent memory** across development sessions
+
+📖 **[Learn more about MCP integration →](docs/development/mcp-integration.md)**
+
 ## Available Agents
 
 ### 🎯 @orchestrator
@@ -329,12 +340,70 @@ User: @doc-writer Create quickstart guide for VAST
 3. Submit PR with improvements
 4. Document the change in agent file
 
+## MCP Integration
+
+All agents are enhanced with **Model Context Protocol (MCP)** capabilities:
+
+### What MCP Adds
+
+- **Specification Access**: Agents can fetch and reference IAB specifications (VAST, OpenRTB, etc.) directly
+- **Smart Navigation**: Enhanced filesystem access for better code understanding
+- **GitHub Context**: Automatic access to issues, PRs, and discussions
+- **Python Tooling**: Ability to run tests, type checking, and code analysis
+- **Memory**: Context persistence across development sessions
+
+### MCP-Enhanced Workflows
+
+#### Protocol Implementation
+```bash
+@developer Implement VAST 4.2 wrapper resolution per section 2.4.3.4
+```
+The agent will:
+1. Fetch VAST 4.2 specification from iabtechlab.com
+2. Read existing code structure
+3. Check related GitHub issues
+4. Implement following the spec
+5. Validate with type checking
+
+#### Test Creation with Specs
+```bash
+@tester Create OpenRTB 2.6 bid validation tests covering all required fields
+```
+The agent will:
+1. Fetch OpenRTB 2.6 specification
+2. Identify all required bid fields
+3. Generate comprehensive test cases
+4. Run tests to verify
+
+#### Documentation with References
+```bash
+@doc-writer Document VAST configuration with spec references
+```
+The agent will:
+1. Read implementation code
+2. Fetch relevant spec sections
+3. Create docs with accurate references
+4. Include working examples
+
+### MCP Configuration
+
+See [MCP Integration Guide](docs/development/mcp-integration.md) for:
+- Available MCP servers
+- Context providers
+- Security policies
+- Troubleshooting
+- Best practices
+
 ## Related Documentation
 
+- [MCP Integration Guide](docs/development/mcp-integration.md) 🆕
+- [GitHub Copilot MCP Documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/extend-coding-agent-with-mcp)
 - [GitHub Copilot Custom Agents Documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents)
+- [Model Context Protocol Specification](https://modelcontextprotocol.io/)
 - [xsp-lib Repository Instructions](.github/copilot-instructions.md)
 - [xsp-lib Architecture](docs/architecture.md)
 
 ## Version History
 
+- v1.1 (2025-12-10): Added MCP integration with 5 servers and agent-specific enhancements
 - v1.0 (2025-12): Initial agent configuration with orchestrator, developer, tester, and doc-writer

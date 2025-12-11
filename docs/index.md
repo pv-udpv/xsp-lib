@@ -18,6 +18,22 @@ Welcome to the **xsp-lib** documentation - the universal AdTech service protocol
 - [Protocol Documentation](protocols/)
 - [Standards Documentation](standards/)
 
+## Development Resources
+
+- [MCP Integration Guide](development/mcp-integration.md) - Model Context Protocol for enhanced GitHub Copilot
+- [MCP Examples](development/mcp-examples.md) - Practical examples using MCP with custom agents
+- [MCP Quick Reference](development/mcp-quick-reference.md) - Quick command reference for MCP
+- [Custom Agents](../AGENTS.md) - GitHub Copilot agent documentation
+
+## Architecture Documentation
+
+In-depth architecture documentation:
+
+- [Final Architecture](architecture-final.md) - Complete system architecture with layers, components, and data flow
+- [Session Management](architecture-session-management.md) - Stateful ad serving with frequency capping and budget tracking
+- [Terminology Reference](architecture-terminology.md) - Precise terminology for each architectural layer
+- [Protocol-Agnostic Design](architecture-protocol-agnostic-design.md) - Generic schemas and protocol handlers
+
 ## Installation
 
 ```bash

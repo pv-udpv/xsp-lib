@@ -1,199 +1,54 @@
-# xsp-lib: Universal AdTech Service Protocol Library
-
-**XSP** = **X-Side Platform** (where X = DSP/SSP/any)
+# AdTech Exchange (xsp-lib) - Exchange Protocols
 
 Comprehensive AdTech protocol repository providing:
 
 ## 🎯 Upstream Protocols
 - **VAST/VPAID/VMAP** - Video ad serving templates
+  - VAST 2.0-4.2 support with macro substitution
+  - Wrapper chain resolution with fallback and creative selection
+  - IAB Tech Lab compliant
 - **OpenRTB 2.x/3.x** - Real-time bidding
 - **DAAST** - Digital audio ad serving
 - **CATS** - Common AdTech Services
-- Custom protocols via extensible abstractions
+- **AdCOM 1.0** - AdTech Common Object Model
 
-## 📋 Industry Standards
-- **OpenDirect** - Programmatic guaranteed buying
-- **AdCOM** - Advertising Common Object Model  
-- **IAB Tech Lab** specifications
-- XML/JSON schemas and validators
+## 🔄 Downstream Support
+- **Custom protocol handlers** with pluggable architecture
+- **Middleware** for cross-cutting concerns
+- **Macro substitution** for dynamic parameter injection
 
-## 🚀 Infrastructure
-- Pluggable transports (HTTP, gRPC, WebSocket, file, memory)
-- Middleware system (retry, circuit breaker, cache, metrics, auth)
-- Schema validation and documentation
-- Testing utilities and fixtures
+## 🛠️ Core Features
+- **Protocol-agnostic** transport layer
+- **Async/await** for high-concurrency operations
+- **Type-safe** with full type hints
+- **Pluggable** architecture for extensions
+- **Production-ready** with comprehensive error handling
 
-## Quick Start
-
-```bash
-pip install xsp-lib[http]
-```
-
-```python
-import asyncio
-from xsp.core.base import BaseUpstream
-from xsp.transports.http import HttpTransport
-
-async def main():
-    upstream = BaseUpstream(
-        transport=HttpTransport(),
-        decoder=lambda b: b.decode('utf-8'),
-        endpoint="https://api.example.com/data"
-    )
-    
-    result = await upstream.fetch()
-    print(result)
-    
-    await upstream.close()
-
-asyncio.run(main())
-```
-
-## Architecture
-
-### Core Abstractions
-
-**Upstream[T]** - Generic protocol for any AdTech service:
-- Fetch data from upstream services
-- Health checks and resource management
-- Type-safe response handling
-
-**Transport** - Pluggable I/O layer:
-- HTTP/HTTPS for REST APIs
-- gRPC for binary protocols
-- File/Memory for testing
-
-**BaseUpstream** - Composition layer:
-- Transport + Decoder/Encoder
-- Timeout and error handling
-- Default parameters and headers
-
-### Middleware System
-
-Chain middleware for cross-cutting concerns:
-- **Retry** - Exponential backoff
-- **Circuit Breaker** - Fault tolerance
-- **Cache** - Response caching
-- **Metrics** - Observability
-- **Auth** - Authentication/authorization
-
-## Installation
+## 📦 Installation
 
 ```bash
-# Core library
-pip install xsp-lib
-
-# With HTTP transport
-pip install xsp-lib[http]
-
-# With specific protocols
-pip install xsp-lib[vast,openrtb]
-
-# Full installation
-pip install xsp-lib[all]
-
-# Development
-pip install xsp-lib[dev]
+poetry install
 ```
 
-## Examples
+## 📚 Documentation
 
-### Basic HTTP Upstream
+See [documentation](./docs/) for comprehensive guides.
 
-```python
-from xsp.core.base import BaseUpstream
-from xsp.transports.http import HttpTransport
+## 🤖 AI-Enhanced Development
 
-upstream = BaseUpstream(
-    transport=HttpTransport(),
-    decoder=lambda b: b.decode('utf-8'),
-    endpoint="https://httpbin.org/get"
-)
+This repository uses **GitHub Copilot with MCP** (Model Context Protocol) for enhanced development:
+- Custom agents: `@orchestrator`, `@developer`, `@tester`, `@doc-writer`
+- Automatic IAB specification access during development
+- Protocol-aware code suggestions and validation
 
-result = await upstream.fetch(params={"key": "value"})
-```
+Learn more: [AGENTS.md](AGENTS.md) | [MCP Integration Guide](docs/development/mcp-integration.md)
 
-### With Retry Middleware
-
-```python
-from xsp.middleware.retry import RetryMiddleware
-from xsp.middleware.base import MiddlewareStack
-
-middleware = MiddlewareStack(
-    RetryMiddleware(max_attempts=3, backoff_base=2.0)
-)
-
-upstream = middleware.wrap(base_upstream)
-result = await upstream.fetch()
-```
-
-### File-based Testing
-
-```python
-from xsp.transports.file import FileTransport
-
-transport = FileTransport()
-upstream = BaseUpstream(
-    transport=transport,
-    decoder=lambda b: b.decode('utf-8'),
-    endpoint="/path/to/test/data.xml"
-)
-```
-
-## Development
+## 🧪 Tests
 
 ```bash
-# Clone repository
-git clone https://github.com/pv-udpv/xsp-lib.git
-cd xsp-lib
-
-# Install in development mode
-pip install -e .[dev,http]
-
-# Run tests
 pytest
-
-# Type checking
-mypy src
-
-# Linting and formatting
-ruff check src tests --fix
-ruff format src tests
 ```
 
-## Roadmap
+## 📄 License
 
-- [x] Core infrastructure (Issue #1)
-- [ ] VAST protocol (Issue #2)
-- [ ] OpenRTB protocol (Issue #3)
-- [ ] DAAST protocol (Issue #4)
-- [ ] CATS protocol (Issue #5)
-- [ ] OpenDirect standard
-- [ ] AdCOM standard
-- [ ] Additional middleware (circuit breaker, cache, metrics)
-- [ ] gRPC and WebSocket transports
-
-## License
-
-MIT - see LICENSE file for details
-
-## GitHub Copilot Agents
-
-This repository includes custom GitHub Copilot agents to streamline development:
-
-- **@orchestrator** - Plans tasks and coordinates between agents
-- **@developer** - Implements AdTech protocols and features
-- **@tester** - Creates comprehensive test suites
-- **@doc-writer** - Writes documentation and guides
-
-See [AGENTS.md](./AGENTS.md) for detailed usage instructions.
-
-## Contributing
-
-Contributions welcome! Please read our contributing guidelines and submit pull requests.
-
-## Links
-
-- [Documentation](https://xsp-lib.readthedocs.io)
-- [Issues](https://github.com/pv-udpv/xsp-lib/issues)
-- [PyPI](https://pypi.org/project/xsp-lib)
+MIT
