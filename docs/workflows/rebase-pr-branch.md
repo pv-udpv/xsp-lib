@@ -8,6 +8,7 @@ The `rebase-pr-branch.yml` workflow provides a consistent, reusable way to:
 - Check for merge conflicts before rebasing
 - Automatically rebase PR branches onto a base branch (e.g., `main`)
 - Optionally resolve merge conflicts automatically
+- Use staging branches for safe rebasing operations
 - Provide clear feedback about conflict status
 - Work as a reusable component in other workflows
 
@@ -15,6 +16,7 @@ The `rebase-pr-branch.yml` workflow provides a consistent, reusable way to:
 
 - ✅ **Conflict Detection**: Checks for merge conflicts before attempting rebase
 - ✅ **Safe Operations**: Uses `--force-with-lease` to prevent accidental overwrites
+- ✅ **Staging Branches**: Optional staging branch for safe rebase testing
 - ✅ **Automatic Resolution**: Optional strategies for auto-resolving conflicts
 - ✅ **Clear Feedback**: Detailed summaries and PR comments about rebase status
 - ✅ **Reusable**: Can be called from other workflows via `workflow_call`
@@ -39,6 +41,24 @@ jobs:
       auto_merge_strategy: 'none'
 ```
 
+### With Staging Branch (Recommended for Safety)
+
+Use a staging branch for safe rebasing:
+
+```yaml
+jobs:
+  rebase:
+    uses: ./.github/workflows/rebase-pr-branch.yml
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      base_branch: 'main'
+      pr_branch: 'feature/my-feature'
+      use_staging_branch: true
+      auto_apply_staging: false  # Review before applying
+```
+
 ### Manual Trigger
 
 Trigger manually from the GitHub Actions UI:
@@ -49,6 +69,8 @@ Trigger manually from the GitHub Actions UI:
    - **base_branch**: The branch to rebase onto (default: `main`)
    - **pr_branch**: The PR branch to rebase (required)
    - **auto_merge_strategy**: How to handle conflicts (default: `none`)
+   - **use_staging_branch**: Use staging branch for safety (default: `false`)
+   - **auto_apply_staging**: Auto-apply staging if successful (default: `false`)
 
 ### Automatic Rebasing
 
@@ -74,6 +96,8 @@ jobs:
 | `base_branch` | Base branch to rebase onto (e.g., `main`) | No | `main` |
 | `pr_branch` | PR branch to rebase | Yes | - |
 | `auto_merge_strategy` | Strategy for auto-resolving conflicts | No | `none` |
+| `use_staging_branch` | Use staging branch for safe rebasing | No | `false` |
+| `auto_apply_staging` | Auto-apply staging branch if rebase succeeds | No | `false` |
 
 ### Auto-Merge Strategies
 
@@ -83,11 +107,26 @@ jobs:
 
 ⚠️ **Warning**: Auto-merge strategies should be used with caution and only when you understand the implications.
 
+### Staging Branch Feature
+
+The staging branch feature provides an extra safety layer:
+
+- **`use_staging_branch: true`**: Creates a temporary branch (e.g., `rebase/feature-branch`) for the rebase operation
+- **`auto_apply_staging: false`**: Keeps the staging branch separate, allowing manual review before applying
+- **`auto_apply_staging: true`**: Automatically applies the staging branch to the PR branch if rebase succeeds
+
+**Benefits:**
+- Original PR branch remains untouched during rebase
+- Review the rebased code in staging branch before applying
+- Safe rollback if issues are found
+- Can be tested in CI/CD before merging
+
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
 | `has_conflicts` | Whether merge conflicts were detected (`true`/`false`) |
+| `staging_branch` | Name of staging branch (if used) |
 | `conflict_files` | Comma-separated list of files with conflicts |
 | `rebase_status` | Status of rebase operation (`success`, `conflicts`, `failed`) |
 
@@ -114,7 +153,30 @@ jobs:
 - Provide instructions for manual resolution
 - **Not** push any changes
 
-### Example 2: Rebase with Automatic "Theirs" Resolution
+### Example 2: Safe Rebase with Staging Branch
+
+```yaml
+jobs:
+  rebase:
+    uses: ./.github/workflows/rebase-pr-branch.yml
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      base_branch: 'main'
+      pr_branch: 'feature/new-protocol'
+      use_staging_branch: true
+      auto_apply_staging: false
+```
+
+**Result**: The workflow will:
+- Create a staging branch `rebase/feature/new-protocol`
+- Perform rebase on the staging branch
+- Original PR branch remains unchanged
+- Provides instructions to review and manually apply the staging branch
+- Safe to test and review before applying
+
+### Example 3: Rebase with Automatic "Theirs" Resolution
 
 ```yaml
 jobs:
@@ -134,7 +196,29 @@ jobs:
 - Push the rebased branch if successful
 - Fall back to manual resolution if automatic resolution fails
 
-### Example 3: Rebase Multiple PRs After Main Update
+### Example 4: Staging Branch with Auto-Apply
+
+```yaml
+jobs:
+  rebase:
+    uses: ./.github/workflows/rebase-pr-branch.yml
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      base_branch: 'main'
+      pr_branch: 'feature/safe-update'
+      use_staging_branch: true
+      auto_apply_staging: true
+```
+
+**Result**: The workflow will:
+- Create a staging branch
+- Perform rebase on staging branch
+- If successful, automatically apply staging branch to PR branch
+- Staging branch is kept for reference
+
+### Example 5: Rebase Multiple PRs After Main Update
 
 ```yaml
 jobs:

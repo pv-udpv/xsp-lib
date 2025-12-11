@@ -20,6 +20,16 @@ on:
         required: false
         type: string
         default: 'none'
+      use_staging_branch:
+        description: 'Use a staging branch for safe rebasing (rebase/pr-branch-name)'
+        required: false
+        type: boolean
+        default: false
+      auto_apply_staging:
+        description: 'Automatically apply staging branch to PR branch if rebase succeeds'
+        required: false
+        type: boolean
+        default: false
     outputs:
       has_conflicts:
         description: 'Whether merge conflicts were detected'
@@ -30,6 +40,9 @@ on:
       rebase_status:
         description: 'Status of rebase operation (success, conflicts, failed)'
         value: ${{ jobs.rebase.outputs.rebase_status }}
+      staging_branch:
+        description: 'Name of staging branch (if used)'
+        value: ${{ jobs.rebase.outputs.staging_branch }}
   
   workflow_dispatch:
     inputs:
@@ -51,6 +64,16 @@ on:
           - none
           - ours
           - theirs
+      use_staging_branch:
+        description: 'Use a staging branch for safe rebasing'
+        required: false
+        type: boolean
+        default: false
+      auto_apply_staging:
+        description: 'Auto-apply staging branch to PR branch if rebase succeeds'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   rebase:
@@ -63,6 +86,7 @@ jobs:
       has_conflicts: ${{ steps.check_conflicts.outputs.has_conflicts }}
       conflict_files: ${{ steps.check_conflicts.outputs.conflict_files }}
       rebase_status: ${{ steps.rebase.outputs.status }}
+      staging_branch: ${{ steps.setup_branch.outputs.staging_branch }}
     
     steps:
       - name: Checkout repository
@@ -81,6 +105,28 @@ jobs:
           git fetch origin ${{ inputs.base_branch }}
           echo "Base branch: ${{ inputs.base_branch }}"
           echo "PR branch: ${{ inputs.pr_branch }}"
+      
+      - name: Setup staging branch
+        id: setup_branch
+        run: |
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            staging_branch="rebase/${{ inputs.pr_branch }}"
+            echo "staging_branch=${staging_branch}" >> $GITHUB_OUTPUT
+            echo "working_branch=${staging_branch}" >> $GITHUB_OUTPUT
+            
+            echo "::group::Creating staging branch"
+            echo "🔀 Creating staging branch: ${staging_branch}"
+            
+            # Create staging branch from current PR branch
+            git checkout -b "${staging_branch}"
+            
+            echo "✅ Staging branch created: ${staging_branch}"
+            echo "::endgroup::"
+          else
+            echo "staging_branch=" >> $GITHUB_OUTPUT
+            echo "working_branch=${{ inputs.pr_branch }}" >> $GITHUB_OUTPUT
+            echo "ℹ️  Using PR branch directly (no staging branch)"
+          fi
       
       - name: Check for merge conflicts
         id: check_conflicts
@@ -217,8 +263,40 @@ jobs:
         if: steps.rebase.outputs.status == 'success'
         run: |
           echo "::group::Pushing rebased branch"
-          git push --force-with-lease origin ${{ inputs.pr_branch }}
-          echo "✅ Rebased branch pushed successfully"
+          
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+            
+            # Push staging branch
+            echo "📤 Pushing staging branch: ${staging_branch}"
+            git push --force-with-lease origin "${staging_branch}"
+            echo "✅ Staging branch pushed: ${staging_branch}"
+            
+            if [ "${{ inputs.auto_apply_staging }}" = "true" ]; then
+              echo ""
+              echo "🔄 Auto-applying staging branch to PR branch..."
+              
+              # Push staging branch to PR branch
+              git push --force-with-lease origin "${staging_branch}:${{ inputs.pr_branch }}"
+              echo "✅ Staging branch applied to PR branch: ${{ inputs.pr_branch }}"
+              
+              # Optionally delete staging branch after successful apply
+              git push origin --delete "${staging_branch}" 2>/dev/null || echo "ℹ️  Keeping staging branch for reference"
+            else
+              echo ""
+              echo "ℹ️  Staging branch created but not auto-applied to PR branch"
+              echo "To apply manually, run:"
+              echo "  git fetch origin ${staging_branch}"
+              echo "  git checkout ${{ inputs.pr_branch }}"
+              echo "  git reset --hard origin/${staging_branch}"
+              echo "  git push --force-with-lease origin ${{ inputs.pr_branch }}"
+            fi
+          else
+            # Direct push to PR branch
+            git push --force-with-lease origin ${{ inputs.pr_branch }}
+            echo "✅ Rebased branch pushed successfully to ${{ inputs.pr_branch }}"
+          fi
+          
           echo "::endgroup::"
       
       - name: Create summary
@@ -228,6 +306,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Base branch:** \`${{ inputs.base_branch }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**PR branch:** \`${{ inputs.pr_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+            echo "**Staging branch:** \`${staging_branch}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Auto-apply:** \`${{ inputs.auto_apply_staging }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "**Status:** \`${{ steps.rebase.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
@@ -259,7 +344,27 @@ jobs:
             echo "✅ No merge conflicts detected." >> $GITHUB_STEP_SUMMARY
             
             if [ "${{ steps.rebase.outputs.status }}" = "success" ]; then
-              echo "✅ Branch rebased successfully." >> $GITHUB_STEP_SUMMARY
+              if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+                staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+                echo "✅ Branch rebased successfully to staging branch: \`${staging_branch}\`" >> $GITHUB_STEP_SUMMARY
+                
+                if [ "${{ inputs.auto_apply_staging }}" = "true" ]; then
+                  echo "✅ Staging branch automatically applied to PR branch." >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📋 Apply Staging Branch" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "Review the staging branch and apply it manually:" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+                  echo "git fetch origin ${staging_branch}" >> $GITHUB_STEP_SUMMARY
+                  echo "git checkout ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+                  echo "git reset --hard origin/${staging_branch}" >> $GITHUB_STEP_SUMMARY
+                  echo "git push --force-with-lease origin ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                fi
+              else
+                echo "✅ Branch rebased successfully." >> $GITHUB_STEP_SUMMARY
+              fi
             fi
           fi
       
@@ -271,12 +376,39 @@ jobs:
             const status = '${{ steps.rebase.outputs.status }}';
             const hasConflicts = '${{ steps.check_conflicts.outputs.has_conflicts }}' === 'true';
             const conflictFiles = '${{ steps.check_conflicts.outputs.conflict_files }}'.split(',').filter(f => f);
+            const useStaging = '${{ inputs.use_staging_branch }}' === 'true';
+            const stagingBranch = '${{ steps.setup_branch.outputs.staging_branch }}';
+            const autoApply = '${{ inputs.auto_apply_staging }}' === 'true';
             
             let body = '## 🔄 Rebase Status\n\n';
             
             if (status === 'success') {
               body += '✅ **Branch rebased successfully!**\n\n';
-              body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\`.\n`;
+              
+              if (useStaging) {
+                body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\` in staging branch \`${stagingBranch}\`.\n\n`;
+                
+                if (autoApply) {
+                  body += '✅ **Staging branch automatically applied to PR branch.**\n\n';
+                } else {
+                  body += '### 📋 Apply Staging Branch\n\n';
+                  body += `Review the staging branch [\`${stagingBranch}\`](../../tree/${stagingBranch}) and apply it manually:\n\n`;
+                  body += '```bash\n';
+                  body += `git fetch origin ${stagingBranch}\n`;
+                  body += `git checkout ${{ inputs.pr_branch }}\n`;
+                  body += `git reset --hard origin/${stagingBranch}\n`;
+                  body += `git push --force-with-lease origin ${{ inputs.pr_branch }}\n`;
+                  body += '```\n\n';
+                  body += 'Or via GitHub CLI:\n';
+                  body += '```bash\n';
+                  body += `gh pr checkout ${{ inputs.pr_branch }}\n`;
+                  body += `git reset --hard origin/${stagingBranch}\n`;
+                  body += `git push --force-with-lease\n`;
+                  body += '```\n';
+                }
+              } else {
+                body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\`.\n`;
+              }
               
               if (hasConflicts) {
                 body += `\n⚠️ Conflicts were automatically resolved using the \`${{ inputs.auto_merge_strategy }}\` strategy.\n`;
