@@ -243,9 +243,6 @@ async def test_wrapper_chain_with_metrics(
 
     # Create resolver
     config = VastChainConfig(max_depth=5, selection_strategy="highest_bitrate")
-    _resolver = VastChainResolver(
-        config=config, upstreams={"primary": wrapper_upstream, "fallback": inline_upstream}
-    )
 
     # Measure resolution time
     start_time = time.time()
