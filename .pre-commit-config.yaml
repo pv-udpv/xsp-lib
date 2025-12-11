@@ -36,6 +36,7 @@ repos:
         name: Ruff lint (auto-fix)
         args: [--fix, --exit-non-zero-on-fix]
         types_or: [python, pyi]
+        files: ^(src/|tests/)
       # Run formatter
       - id: ruff-format
         name: Ruff format
