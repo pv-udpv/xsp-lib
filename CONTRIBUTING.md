@@ -25,6 +25,7 @@ Be respectful, inclusive, and professional in all interactions. We're building t
 - Python 3.11 or higher
 - Git
 - Familiarity with async Python programming
+- Node.js (optional, for MCP integration with GitHub Copilot)
 
 ### Setup Development Environment
 
@@ -40,7 +41,27 @@ pip install -e .[dev,http]
 pytest --version
 mypy --version
 ruff --version
+
+# Optional: Verify MCP setup (for GitHub Copilot enhancement)
+node --version  # Should be v16+ for MCP servers
 ```
+
+### GitHub Copilot with MCP (Optional)
+
+This repository includes Model Context Protocol (MCP) integration for enhanced GitHub Copilot capabilities:
+
+- **Automatic spec access**: Copilot can fetch IAB specifications during development
+- **Smart context**: Enhanced understanding of repository structure and history
+- **Better suggestions**: Protocol-aware code completion and generation
+
+To enable MCP features:
+1. Ensure Node.js is installed (v16+)
+2. Use GitHub Copilot in your IDE
+3. MCP will automatically activate when working in this repository
+
+**For GitHub Copilot Coding Agent**: The repository includes `.github/workflows/copilot-setup-steps.yml` that automatically prepares the development environment with all dependencies, CLI tools, and MCP servers.
+
+See [MCP Integration Guide](docs/development/mcp-integration.md) for details.
 
 ### Repository Structure
 
