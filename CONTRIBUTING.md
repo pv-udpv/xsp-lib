@@ -135,7 +135,7 @@ git checkout -b fix/your-bug-fix
 - Update documentation as needed
 - Commit frequently with clear messages
 
-**Pre-commit hooks will automatically check and fix code on each commit!**
+**Pre-commit hooks will automatically check your code on each commit, auto-fixing formatting and lint issues where possible. Some checks (like type errors and test failures) will require manual fixes.**
 
 ### 4. Test Your Changes
 
