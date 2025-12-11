@@ -1,0 +1,485 @@
+# XSP-Lib Production Configuration
+# ==================================
+#
+# This configuration file demonstrates production-ready settings for Phase 4
+# features including dialer connection pooling, session management, frequency
+# capping, and budget tracking.
+#
+# Usage:
+#   Place this file in your deployment directory and reference it in your
+#   application startup code. For development/testing, see config_development.toml
+#
+# Note:
+#   This is a reference configuration. Adapt values to your specific
+#   infrastructure, traffic patterns, and business requirements.
+
+# ==============================================================================
+# Dialer Configuration - Connection Pooling
+# ==============================================================================
+# The dialer manages HTTP connection pools for upstream ad servers, DSPs, and
+# SSPs. Proper pooling reduces latency and improves throughput in high-traffic
+# production environments.
+#
+# References:
+#   - HTTPX Connection Pooling: https://www.python-httpx.org/advanced/
+#   - IAB VAST 4.2: https://iabtechlab.com/vast/
+
+[dialer]
+# Maximum total connections in the pool (all hosts combined)
+# Production recommendation: Set based on expected concurrent requests
+# Calculation: max_concurrent_requests × 1.5 (for burst capacity)
+# Example: 150 concurrent requests × 1.5 = 225, rounded to 200
+max_connections = 200
+
+# Maximum idle keepalive connections to maintain
+# These connections are kept open for reuse to reduce TLS handshake overhead
+# Production recommendation: 20-30% of max_connections
+# Keepalive connections significantly improve latency for repeated requests
+max_keepalive_connections = 60
+
+# Default timeout for all HTTP requests (seconds)
+# Per IAB best practices, video ad requests should complete within 5-10s
+# This includes DNS resolution, TCP connection, TLS handshake, and response
+# Set conservatively to handle network variability
+timeout = 10.0
+
+# Connection pool cleanup interval (seconds)
+# How often to close idle connections that exceed the keepalive limit
+# Lower values = more aggressive cleanup, less memory usage
+# Higher values = better connection reuse, slightly higher memory
+cleanup_interval = 30.0
+
+
+# ==============================================================================
+# Session Management Configuration
+# ==============================================================================
+# Session management tracks request context including user IDs, request IDs,
+# and metadata for frequency capping, budget tracking, and analytics.
+#
+# Sessions are lightweight objects that maintain state across multiple ad
+# requests from the same user within a time window.
+
+[session]
+# Enable session state tracking
+# Required for frequency capping and budget middleware to function
+# Disable only if you don't need user-level tracking
+enabled = true
+
+# Session timeout (seconds)
+# After this period of inactivity, session state is eligible for cleanup
+# Production: 24 hours (86400s) aligns with daily frequency cap windows
+# Note: Expired sessions are purged during cleanup intervals
+session_timeout = 86400
+
+# Maximum concurrent sessions
+# Limits memory usage by capping active session storage
+# Set based on expected peak concurrent users
+# Example: 100k sessions × ~1KB/session = ~100MB memory
+max_concurrent_sessions = 100000
+
+# Session state cleanup interval (seconds)
+# How often to purge expired sessions from memory
+# Balance between memory usage and cleanup overhead
+# Recommendation: Run cleanup during off-peak hours if possible
+cleanup_interval = 3600  # 1 hour
+
+
+# ==============================================================================
+# Frequency Capping Configuration (IAB QAG Compliant)
+# ==============================================================================
+# Frequency capping controls ad exposure to users, balancing reach with user
+# experience per IAB Quality Assurance Guidelines (QAG).
+#
+# IAB QAG Recommendations:
+#   - Video ads: 3-10 impressions per 24 hours
+#   - Balance reach vs. user experience
+#   - Stricter caps for intrusive formats (interstitials, pre-roll)
+#   - Consider content type and user context
+#
+# References:
+#   - IAB QAG: Quality Assurance Guidelines for digital advertising
+#   - IAB VAST Best Practices: Recommended frequency caps for video
+
+[frequency_capping]
+# Enable frequency capping middleware
+# Prevents ad fatigue and improves campaign performance
+enabled = true
+
+# Global frequency cap settings (applies to all campaigns if per_campaign = false)
+[frequency_capping.global]
+# Maximum impressions per user within the time window
+# IAB QAG recommends 3-10 impressions per 24 hours for video ads
+# 5 impressions balances reach and user experience
+max_impressions = 5
+
+# Time window in seconds (86400 = 24 hours)
+# Standard: Daily frequency caps align with advertiser KPIs and reporting
+time_window_seconds = 86400
+
+# Apply cap per campaign instead of globally
+# false = User can see 5 total impressions across ALL campaigns
+# true = User can see 5 impressions PER campaign
+# Production recommendation: true for better campaign isolation
+per_campaign = false
+
+# Per-campaign frequency cap overrides (optional)
+# These override global settings for specific campaigns
+# Use for campaigns requiring stricter or looser frequency management
+
+[[frequency_capping.campaigns]]
+campaign_id = "premium-brand-campaign"
+max_impressions = 3  # Stricter cap for brand safety
+time_window_seconds = 86400
+# Rationale: Premium brand campaigns prioritize quality over reach
+
+[[frequency_capping.campaigns]]
+campaign_id = "performance-campaign"
+max_impressions = 10  # Higher cap for direct response
+time_window_seconds = 86400
+# Rationale: Performance campaigns optimize for conversions, not brand
+
+[[frequency_capping.campaigns]]
+campaign_id = "interstitial-campaign"
+max_impressions = 2  # Very strict for intrusive formats
+time_window_seconds = 43200  # 12 hours
+# Rationale: Interstitials are disruptive; minimize user annoyance
+
+# Storage backend for frequency counters
+[frequency_capping.storage]
+# Backend type: "memory", "redis", "memcached"
+# Production: MUST use "redis" or "memcached" for distributed deployments
+# Memory backend is only suitable for single-instance development
+backend = "redis"
+
+# Redis connection settings (if backend = "redis")
+[frequency_capping.storage.redis]
+host = "localhost"
+port = 6379
+db = 0  # Separate database for frequency data
+# Optional authentication
+password = ""
+# Connection pool size for Redis client
+max_connections = 50
+# Key prefix for frequency counters (prevents key collisions)
+key_prefix = "freq:"
+# Enable TLS/SSL for Redis connection
+ssl = false
+# Optional: Redis Cluster mode
+cluster_enabled = false
+# Optional: Redis Sentinel for high availability
+sentinel_enabled = false
+
+
+# ==============================================================================
+# Budget Tracking Configuration
+# ==============================================================================
+# Budget tracking prevents campaign overspend by monitoring ad costs in real-time.
+# Uses Decimal precision for financial accuracy per industry best practices.
+#
+# Key Features:
+#   - Real-time spend tracking with Decimal precision
+#   - Per-campaign budget isolation
+#   - Budget pacing for even spend distribution
+#   - Atomic updates to prevent race conditions
+#
+# References:
+#   - IAB OpenRTB 2.6 §3.2.1: Budget signaling
+#   - IAB Programmatic Supply Chain: Budget pacing guidelines
+
+[budget_tracking]
+# Enable budget tracking middleware
+# Critical for preventing campaign overspend
+enabled = true
+
+# Default cost per impression if not specified in request
+# Set to typical CPM / 1000 for your inventory
+# Example: $5 CPM = $0.005 per impression
+# IMPORTANT: Use string format for Decimal precision, not float
+default_cost = "0.005"
+
+# Currency for all budget calculations (ISO 4217 code)
+# Must be 3-letter code: USD, EUR, GBP, JPY, CNY, etc.
+# All campaign budgets must use the same currency
+currency = "USD"
+
+# Apply budgets per campaign instead of globally
+# false = Single global budget for all campaigns combined
+# true = Separate budget for each campaign (recommended)
+per_campaign = true
+
+# Campaign budget definitions
+# Each campaign has a total budget and tracks spend
+# Add/remove campaigns as needed for your business
+
+[[budget_tracking.campaigns]]
+campaign_id = "premium-brand-2024-q4"
+# Total budget in specified currency
+# IMPORTANT: Use string format for Decimal precision
+total_budget = "50000.00"  # $50,000
+# Current spend (typically loaded from database on startup)
+# Updated in real-time as impressions are served
+spent = "0.00"
+# Optional: Budget pacing (even distribution over time)
+# Prevents spending entire budget too quickly
+pacing_enabled = true
+# Pacing period in days
+# Budget is distributed evenly across this period
+pacing_days = 30
+
+[[budget_tracking.campaigns]]
+campaign_id = "performance-direct-response"
+total_budget = "100000.00"  # $100,000
+spent = "0.00"
+pacing_enabled = true
+pacing_days = 60
+# Rationale: 2-month campaign with steady daily spend
+
+[[budget_tracking.campaigns]]
+campaign_id = "test-creative-optimization"
+total_budget = "5000.00"  # $5,000 test budget
+spent = "0.00"
+pacing_enabled = false  # No pacing for test campaigns
+# Rationale: Test campaigns need flexibility, not pacing
+
+[[budget_tracking.campaigns]]
+campaign_id = "retargeting-holiday-2024"
+total_budget = "75000.00"  # $75,000
+spent = "0.00"
+pacing_enabled = true
+pacing_days = 45
+# Rationale: Holiday campaign with fixed duration
+
+# Storage backend for budget data
+[budget_tracking.storage]
+# Backend type: "memory", "redis", "database"
+# Production: Use "database" or "redis" for persistence and atomicity
+# Database ensures budget data survives restarts
+backend = "redis"
+
+# Redis connection settings (if backend = "redis")
+[budget_tracking.storage.redis]
+host = "localhost"
+port = 6379
+db = 1  # Separate DB from frequency capping (db 0)
+password = ""
+max_connections = 50
+# Key prefix for budget data
+key_prefix = "budget:"
+ssl = false
+
+# Budget update settings
+[budget_tracking.updates]
+# Batch update interval (seconds)
+# Batch multiple spend updates to reduce database writes
+# Lower = more accurate, higher write load
+# Higher = less write load, slightly delayed accuracy
+batch_interval = 5.0
+
+# Maximum batch size (number of updates)
+# Flush batch when this many updates are pending
+batch_max_size = 100
+
+# Enable atomic budget updates (prevents race conditions)
+# CRITICAL: Must be true in production to prevent overspend
+# Uses Redis WATCH/MULTI or database transactions
+atomic_updates = true
+
+# Budget refresh interval from database (seconds)
+# Sync in-memory budgets with authoritative database
+# Ensures multiple instances stay synchronized
+refresh_interval = 60.0
+
+
+# ==============================================================================
+# Upstream Service Configuration
+# ==============================================================================
+# Configuration for upstream ad servers, DSPs, and SSPs
+
+[upstream]
+# VAST video ad server endpoints
+[upstream.vast]
+# Primary VAST endpoint
+endpoint = "https://ad-server.example.com/vast"
+
+# Fallback endpoints (tried in order if primary fails)
+# Improves availability and reduces lost revenue from outages
+fallback_endpoints = [
+    "https://backup1.ad-server.example.com/vast",
+    "https://backup2.ad-server.example.com/vast"
+]
+
+# Request timeout (seconds)
+# Must be shorter than typical video player timeout (10-15s)
+timeout = 8.0
+
+# Maximum wrapper depth (VAST 4.2 §2.4.3.4 recommends max 5)
+# Protects against infinite wrapper chains
+max_wrapper_depth = 5
+
+# VAST version to request (3.0, 4.0, 4.1, 4.2)
+# Use latest supported version for best features
+version = "4.2"
+
+# OpenRTB bid request endpoints
+[upstream.openrtb]
+endpoint = "https://dsp.example.com/rtb/bid"
+# OpenRTB 2.6 recommends 100-120ms timeout per §4.1
+# Account for network latency; use 150ms for safety
+timeout = 0.150  # 150ms in seconds
+
+# OpenRTB version (2.6 or 3.0)
+# Most DSPs still use 2.6; migrate to 3.0 only when needed
+version = "2.6"
+
+
+# ==============================================================================
+# Retry and Circuit Breaker Configuration
+# ==============================================================================
+# Resilience patterns for handling upstream failures gracefully
+
+[retry]
+# Enable retry middleware
+# Automatically retries failed requests with exponential backoff
+enabled = true
+
+# Maximum retry attempts
+# Total attempts = 1 initial + 3 retries = 4 attempts max
+max_attempts = 3
+
+# Exponential backoff base (seconds)
+# First retry: 1s, second: 2s, third: 4s (with jitter)
+backoff_base = 1.0
+
+# Maximum backoff time (seconds)
+# Caps backoff growth to prevent excessive delays
+max_backoff = 10.0
+
+# Jitter factor (0.0-1.0) to avoid thundering herd problem
+# Adds randomness to backoff: actual_backoff = backoff × (1 ± jitter)
+jitter = 0.1
+
+# Retry on these HTTP status codes
+# 408 = Request Timeout
+# 429 = Too Many Requests (rate limiting)
+# 500 = Internal Server Error
+# 502 = Bad Gateway
+# 503 = Service Unavailable
+# 504 = Gateway Timeout
+retry_on_status = [408, 429, 500, 502, 503, 504]
+
+[circuit_breaker]
+# Enable circuit breaker middleware
+# Stops sending requests to failing upstreams, allowing them to recover
+enabled = true
+
+# Failure threshold to open circuit
+# After 5 consecutive failures, circuit opens
+failure_threshold = 5
+
+# Success threshold to close circuit
+# After 2 consecutive successes in half-open state, circuit closes
+success_threshold = 2
+
+# Timeout before attempting recovery (seconds)
+# How long to keep circuit open before trying again
+timeout = 60.0
+
+
+# ==============================================================================
+# Monitoring and Logging
+# ==============================================================================
+# Observability configuration for production operations
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Production: INFO or WARNING to reduce log volume
+level = "INFO"
+
+# Log format: "json" or "text"
+# JSON format is machine-readable for log aggregation (e.g., ELK, Splunk)
+format = "json"
+
+# Include request IDs in logs
+# Essential for tracing requests across services
+include_request_id = true
+
+# Include session context in logs
+# Helps debug frequency capping and budget tracking issues
+include_session_context = true
+
+[metrics]
+# Enable metrics collection
+# Required for monitoring campaign performance and system health
+enabled = true
+
+# Metrics backend: "prometheus", "statsd", "cloudwatch"
+backend = "prometheus"
+
+# Metrics port for Prometheus scraping
+prometheus_port = 9090
+
+# Metric name prefix
+# Prevents metric name collisions in shared monitoring systems
+prefix = "xsp_lib_"
+
+
+# ==============================================================================
+# Security Configuration
+# ==============================================================================
+# Security settings for production deployments
+
+[security]
+# Enable TLS/SSL verification for upstream requests
+# CRITICAL: Must be true in production to prevent MITM attacks
+verify_ssl = true
+
+# Client certificate for mutual TLS (optional)
+# Required if upstream services use mTLS authentication
+client_cert = ""
+client_key = ""
+
+# Allowed cipher suites (leave empty for secure defaults)
+# Only customize if you have specific compliance requirements
+cipher_suites = []
+
+# Rate limiting (DDoS protection)
+[security.rate_limiting]
+enabled = true
+
+# Maximum requests per second per IP address
+# Protects against DDoS attacks
+max_requests_per_second = 100
+
+# Maximum requests per second per user_id
+# Protects against abuse from compromised user accounts
+max_requests_per_user = 50
+
+
+# ==============================================================================
+# Performance Tuning
+# ==============================================================================
+# Advanced performance optimization settings
+
+[performance]
+# Enable response compression (gzip)
+# Reduces bandwidth usage and improves response times
+compression_enabled = true
+
+# Compression level (1-9, higher = better compression, slower)
+# 6 is a good balance for most use cases
+compression_level = 6
+
+# HTTP/2 support
+# Improves performance through multiplexing and header compression
+http2_enabled = true
+
+# DNS cache TTL (seconds)
+# Reduces DNS lookup overhead for frequently accessed hosts
+dns_cache_ttl = 300
+
+# TCP keepalive settings
+# Keeps connections alive and detects dead connections faster
+tcp_keepalive_enabled = true
+tcp_keepalive_idle = 60  # Seconds before sending keepalive probe
+tcp_keepalive_interval = 10  # Seconds between keepalive probes
+tcp_keepalive_count = 5  # Number of failed probes before closing connection

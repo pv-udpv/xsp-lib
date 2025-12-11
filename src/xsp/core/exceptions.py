@@ -37,25 +37,9 @@ class ValidationError(XspError):
     """Schema validation failed."""
 
 
-class VastError(UpstreamError):
-    """VAST protocol error."""
+class FrequencyCapExceeded(XspError):  # noqa: N818
+    """Frequency cap limit exceeded."""
 
 
-class VastTimeoutError(VastError):
-    """VAST request timed out."""
-
-
-class VastNetworkError(VastError):
-    """VAST network error."""
-
-
-class VastHttpError(VastError):
-    """VAST HTTP error."""
-
-    def __init__(self, message: str, status_code: int):
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class VastParseError(VastError):
-    """VAST XML parsing error."""
+class BudgetExceeded(XspError):  # noqa: N818
+    """Budget limit exceeded."""

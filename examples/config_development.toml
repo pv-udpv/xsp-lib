@@ -1,0 +1,453 @@
+# XSP-Lib Development Configuration
+# ===================================
+#
+# This configuration file provides development-friendly settings with looser
+# limits, faster timeouts, and debug features enabled for local testing.
+#
+# Usage:
+#   Use this configuration during development and testing. For production
+#   deployment, see config_production.toml
+#
+# Key Differences from Production:
+#   - Smaller connection pools (lower resource usage)
+#   - Shorter timeouts (faster feedback during testing)
+#   - Debug logging enabled
+#   - Smaller budgets for testing
+#   - In-memory storage backends (no external dependencies)
+#   - Looser frequency caps (easier testing)
+
+# ==============================================================================
+# Dialer Configuration - Connection Pooling
+# ==============================================================================
+# Reduced connection pool sizes for local development
+# Lower resource usage suitable for laptop/desktop development
+
+[dialer]
+# Maximum total connections in the pool
+# Development: Much smaller than production (20 vs 200)
+# Sufficient for local testing without consuming too many file descriptors
+max_connections = 20
+
+# Maximum idle keepalive connections
+# Development: Proportionally smaller (5 vs 60)
+max_keepalive_connections = 5
+
+# Default timeout for all HTTP requests (seconds)
+# Development: Shorter timeout for faster feedback on errors
+# If your local ad server is slow, increase this value
+timeout = 5.0
+
+# Connection pool cleanup interval (seconds)
+# Development: More aggressive cleanup to reduce resource usage
+cleanup_interval = 10.0
+
+
+# ==============================================================================
+# Session Management Configuration
+# ==============================================================================
+# Simplified session management for development testing
+
+[session]
+# Enable session state tracking
+enabled = true
+
+# Session timeout (seconds)
+# Development: 1 hour (3600s) instead of 24 hours
+# Shorter timeout means less memory usage during development
+session_timeout = 3600
+
+# Maximum concurrent sessions
+# Development: Much smaller (1000 vs 100000)
+# Sufficient for local testing scenarios
+max_concurrent_sessions = 1000
+
+# Session state cleanup interval (seconds)
+# Development: More frequent cleanup (5 min vs 1 hour)
+cleanup_interval = 300
+
+
+# ==============================================================================
+# Frequency Capping Configuration
+# ==============================================================================
+# Looser frequency caps for easier testing
+# You can trigger caps quickly without waiting 24 hours
+
+[frequency_capping]
+# Enable frequency capping middleware
+enabled = true
+
+# Global frequency cap settings
+[frequency_capping.global]
+# Maximum impressions per user within the time window
+# Development: Higher cap (20 vs 5) for easier testing
+# You can still test cap behavior, but won't be blocked as quickly
+max_impressions = 20
+
+# Time window in seconds
+# Development: 1 hour (3600s) instead of 24 hours
+# Faster testing cycle - you can see cap reset within an hour
+time_window_seconds = 3600
+
+# Apply cap per campaign
+# Development: false for simpler testing
+# Switch to true when testing per-campaign isolation
+per_campaign = false
+
+# Per-campaign frequency cap examples for testing
+[[frequency_capping.campaigns]]
+campaign_id = "test-campaign-strict"
+max_impressions = 3  # Low cap for testing cap-exceeded behavior
+time_window_seconds = 300  # 5 minutes - very quick reset
+
+[[frequency_capping.campaigns]]
+campaign_id = "test-campaign-normal"
+max_impressions = 10
+time_window_seconds = 1800  # 30 minutes
+
+# Storage backend for frequency counters
+[frequency_capping.storage]
+# Development: Use in-memory storage (no Redis required)
+# IMPORTANT: Data is lost when application restarts
+# For integration testing with Redis, change to "redis"
+backend = "memory"
+
+# Redis settings (optional - only if you want to test with Redis locally)
+[frequency_capping.storage.redis]
+host = "localhost"
+port = 6379
+db = 0
+password = ""
+max_connections = 10  # Smaller pool for development
+key_prefix = "freq:dev:"  # Different prefix to avoid conflicts
+ssl = false
+
+
+# ==============================================================================
+# Budget Tracking Configuration
+# ==============================================================================
+# Smaller test budgets for development
+
+[budget_tracking]
+# Enable budget tracking middleware
+enabled = true
+
+# Default cost per impression
+# Development: Higher cost for faster budget testing
+# $0.10 per impression = 100 impressions to exhaust $10 budget
+default_cost = "0.10"
+
+# Currency (ISO 4217 code)
+currency = "USD"
+
+# Apply budgets per campaign
+# Development: true for testing campaign isolation
+per_campaign = true
+
+# Test campaign budgets
+# Small budgets that are easy to exhaust during testing
+
+[[budget_tracking.campaigns]]
+campaign_id = "test-campaign-small"
+# Small budget: easy to exhaust in a few requests
+total_budget = "10.00"  # $10
+spent = "0.00"
+pacing_enabled = false  # No pacing for easier testing
+
+[[budget_tracking.campaigns]]
+campaign_id = "test-campaign-medium"
+total_budget = "50.00"  # $50
+spent = "0.00"
+pacing_enabled = true
+pacing_days = 7  # 1 week test campaign
+
+[[budget_tracking.campaigns]]
+campaign_id = "test-campaign-large"
+total_budget = "200.00"  # $200
+spent = "0.00"
+pacing_enabled = true
+pacing_days = 30
+
+[[budget_tracking.campaigns]]
+campaign_id = "test-campaign-exhausted"
+# Pre-exhausted budget for testing error handling
+total_budget = "100.00"
+spent = "100.00"  # Already spent entire budget
+pacing_enabled = false
+
+# Storage backend for budget data
+[budget_tracking.storage]
+# Development: Use in-memory storage (no Redis/database required)
+# IMPORTANT: Budget data is lost when application restarts
+# For integration testing, change to "redis" or "database"
+backend = "memory"
+
+# Redis settings (optional - for local integration testing)
+[budget_tracking.storage.redis]
+host = "localhost"
+port = 6379
+db = 1
+password = ""
+max_connections = 10
+key_prefix = "budget:dev:"
+ssl = false
+
+# Budget update settings
+[budget_tracking.updates]
+# Batch update interval (seconds)
+# Development: Shorter interval for faster feedback
+batch_interval = 1.0
+
+# Maximum batch size
+batch_max_size = 50
+
+# Enable atomic budget updates
+# Development: true to match production behavior
+atomic_updates = true
+
+# Budget refresh interval (seconds)
+# Development: More frequent refresh for testing
+refresh_interval = 30.0
+
+
+# ==============================================================================
+# Upstream Service Configuration
+# ==============================================================================
+# Local/test upstream endpoints
+
+[upstream]
+# VAST video ad server endpoints
+[upstream.vast]
+# Development: Point to local test server or public VAST samples
+# Example: IAB VAST samples for testing
+endpoint = "https://iab-publicfiles.s3.amazonaws.com/vast/VAST-4.0-Short-Intro.xml"
+
+# No fallback endpoints in development (simpler testing)
+fallback_endpoints = []
+
+# Request timeout (seconds)
+# Development: Shorter timeout for faster failure feedback
+timeout = 3.0
+
+# Maximum wrapper depth
+max_wrapper_depth = 5
+
+# VAST version
+version = "4.2"
+
+# OpenRTB bid request endpoints
+[upstream.openrtb]
+# Development: Point to local mock DSP or staging environment
+endpoint = "http://localhost:8080/rtb/bid"
+timeout = 1.0  # 1 second - much longer than production for debugging
+version = "2.6"
+
+
+# ==============================================================================
+# Retry and Circuit Breaker Configuration
+# ==============================================================================
+# Faster feedback during development
+
+[retry]
+# Enable retry middleware
+# Development: Enabled to test retry logic
+enabled = true
+
+# Maximum retry attempts
+# Development: Fewer retries (2 vs 3) for faster failure feedback
+max_attempts = 2
+
+# Exponential backoff base (seconds)
+# Development: Shorter backoff for faster testing
+backoff_base = 0.5
+
+# Maximum backoff time (seconds)
+max_backoff = 5.0
+
+# Jitter factor
+jitter = 0.1
+
+# Retry on status codes
+retry_on_status = [408, 429, 500, 502, 503, 504]
+
+[circuit_breaker]
+# Enable circuit breaker middleware
+enabled = true
+
+# Failure threshold to open circuit
+# Development: Lower threshold (3 vs 5) for easier testing
+failure_threshold = 3
+
+# Success threshold to close circuit
+success_threshold = 2
+
+# Timeout before attempting recovery (seconds)
+# Development: Shorter timeout (30s vs 60s) for faster recovery testing
+timeout = 30.0
+
+
+# ==============================================================================
+# Monitoring and Logging
+# ==============================================================================
+# Debug-friendly logging and metrics
+
+[logging]
+# Log level
+# Development: DEBUG for detailed troubleshooting
+# Change to INFO to reduce noise once you know the code works
+level = "DEBUG"
+
+# Log format
+# Development: "text" is more readable in terminal
+# Use "json" when testing log aggregation pipelines
+format = "text"
+
+# Include request IDs in logs
+include_request_id = true
+
+# Include session context in logs
+include_session_context = true
+
+[metrics]
+# Enable metrics collection
+# Development: Optional - enable when testing metrics integration
+enabled = false
+
+# Metrics backend
+backend = "prometheus"
+
+# Metrics port
+# Development: Different port to avoid conflicts
+prometheus_port = 9091
+
+# Metric name prefix
+prefix = "xsp_lib_dev_"
+
+
+# ==============================================================================
+# Security Configuration
+# ==============================================================================
+# Relaxed security for local development
+
+[security]
+# Enable TLS/SSL verification
+# Development: false for testing with self-signed certificates
+# IMPORTANT: Always true in production!
+verify_ssl = false
+
+# Client certificates (usually not needed in development)
+client_cert = ""
+client_key = ""
+
+# Cipher suites (use defaults)
+cipher_suites = []
+
+# Rate limiting
+[security.rate_limiting]
+# Development: Disabled for easier testing
+# Enable when testing rate limiting behavior
+enabled = false
+
+max_requests_per_second = 1000  # Very high limit
+max_requests_per_user = 500
+
+
+# ==============================================================================
+# Performance Tuning
+# ==============================================================================
+# Development performance settings
+
+[performance]
+# Enable response compression
+# Development: Disabled to make debugging easier (readable responses)
+# Enable when testing compression behavior
+compression_enabled = false
+
+# Compression level (only matters if compression_enabled = true)
+compression_level = 1  # Fastest compression
+
+# HTTP/2 support
+# Development: Disabled for simpler debugging
+# Most development tools work better with HTTP/1.1
+http2_enabled = false
+
+# DNS cache TTL (seconds)
+# Development: Shorter TTL in case you're changing /etc/hosts
+dns_cache_ttl = 60
+
+# TCP keepalive settings
+# Development: Disabled for simpler connection management
+tcp_keepalive_enabled = false
+tcp_keepalive_idle = 60
+tcp_keepalive_interval = 10
+tcp_keepalive_count = 3
+
+
+# ==============================================================================
+# Development-Specific Settings
+# ==============================================================================
+# Additional settings useful for development and testing
+
+[development]
+# Enable auto-reload on code changes (if supported by your framework)
+auto_reload = true
+
+# Enable detailed error pages with stack traces
+# IMPORTANT: Never enable in production (security risk)
+detailed_errors = true
+
+# Enable request/response logging
+# Logs full HTTP requests and responses for debugging
+# WARNING: Can log sensitive data; use carefully
+log_requests = true
+log_responses = true
+
+# Mock mode (use mock data instead of real upstream calls)
+# Useful for testing without external dependencies
+mock_mode = false
+
+# Test data directory
+# Directory containing VAST XML files, OpenRTB JSON, etc. for testing
+test_data_dir = "./tests/data"
+
+# Database settings for local development
+[development.database]
+# Use SQLite for local development (no separate DB server needed)
+url = "sqlite:///./dev.db"
+echo = true  # Log all SQL queries (for debugging)
+pool_size = 5
+
+# Redis settings for local development (optional)
+[development.redis]
+# If you have Redis running locally, configure it here
+# Otherwise, the in-memory backends will be used
+enabled = false
+host = "localhost"
+port = 6379
+
+
+# ==============================================================================
+# Testing Configuration
+# ==============================================================================
+# Settings specific to automated testing
+
+[testing]
+# Use in-memory storage for all backends during testing
+force_memory_storage = true
+
+# Disable all external network calls during unit tests
+# Only integration tests should make real network calls
+mock_network = true
+
+# Test timeout (seconds)
+# Maximum time for any single test
+test_timeout = 30
+
+# Parallel test execution
+# Number of test workers (0 = auto-detect CPU count)
+test_workers = 0
+
+# Coverage settings
+[testing.coverage]
+enabled = true
+min_coverage = 80  # Minimum test coverage percentage
+fail_under = 80  # Fail CI if coverage drops below this

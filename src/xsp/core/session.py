@@ -1,323 +1,369 @@
-"""Session management abstractions for stateful ad serving.
+"""Session management for tracking request context and state."""
 
-This module provides core session abstractions for maintaining state across
-ad serving workflows (e.g., VAST wrapper chain resolution, frequency capping,
-budget tracking).
+import asyncio
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Protocol, TypeVar
 
-Core Concepts:
+from xsp.protocols.vast.upstream import VastUpstream
 
-1. SessionContext: Immutable context shared across wrapper resolution chain
-   - Contains session state: timestamp, correlator, cookies, etc.
-   - Frozen dataclass prevents accidental mutation
-   - Safe to pass through multiple service calls
-
-2. UpstreamSession: Stateful protocol for ad serving
-   - Request within session context (preserves cookies, correlator)
-   - Frequency capping: Check before serving ad
-   - Budget tracking: Track spend per campaign
-   - Resource cleanup: Close session when done
-
-Example Usage:
-
-    import time
-    from xsp.core.session import SessionContext
-    from xsp.protocols.vast import VastUpstream
-    from xsp.transports.http import HttpTransport
-
-    async def serve_ad():
-        # Create immutable session context
-        context = SessionContext(
-            timestamp=int(time.time() * 1000),
-            correlator="session-abc123",
-            cachebusting="rand-456789",
-            cookies={"uid": "user123"},
-            request_id="req-001"
-        )
-
-        # Create stateful session
-        upstream = VastUpstream(
-            transport=HttpTransport(),
-            endpoint="https://ads.example.com/vast"
-        )
-        session = await upstream.create_session(context)
-
-        try:
-            # Check frequency cap
-            if await session.check_frequency_cap("user123"):
-                # Serve ad within session context
-                ad = await session.request(
-                    params={"slot": "pre-roll"},
-                    headers={"X-Custom": "value"}
-                )
-
-                # Track budget
-                await session.track_budget("campaign-456", 2.50)
-                return ad
-            else:
-                return None  # Cap exceeded
-        finally:
-            # Always cleanup
-            await session.close()
-"""
-
-from dataclasses import dataclass
-from typing import Any, Protocol
+T = TypeVar("T", covariant=True)
 
 
 @dataclass(frozen=True)
 class SessionContext:
-    """Immutable session context for stateful ad serving.
+    """
+    Immutable session context for request tracking.
 
-    SessionContext provides immutable state shared across the entire
-    ad serving workflow (e.g., VAST wrapper chain resolution). It contains:
-
-    - Session identification (correlator, request_id)
-    - Timing information (timestamp for macros)
-    - HTTP state (cookies, cache-busting)
-
-    The frozen dataclass ensures thread-safe sharing without risk of
-    accidental mutation during processing.
+    Stores request metadata that should not change during the session lifecycle.
+    Immutability is enforced via @dataclass(frozen=True).
 
     Attributes:
-        timestamp: Unix timestamp in milliseconds. Used for [TIMESTAMP] macro.
-                  Example: 1702275840000
-        correlator: Unique session identifier. Used for [CORRELATOR] macro.
-                   Example: "session-abc123"
-        cachebusting: Random value for cache-busting. Used for [CACHEBUSTING]
-                     macro. Example: "456789123"
-        cookies: HTTP cookies to preserve across requests in session.
-                Example: {"uid": "user123", "session": "xyz"}
-        request_id: Request tracing ID for logging/debugging.
-                   Example: "req-001"
+        request_id: Unique identifier for the request
+        user_id: User identifier (e.g., cookie ID, device ID)
+        ip_address: Client IP address
+        timestamp: Request creation timestamp
+        metadata: Additional context data (immutable after creation)
 
     Example:
-        >>> import time
-        >>> context = SessionContext(
-        ...     timestamp=int(time.time() * 1000),
-        ...     correlator="session-abc",
-        ...     cachebusting="rand123",
-        ...     cookies={"uid": "user1"},
-        ...     request_id="req-1"
+        >>> from datetime import datetime
+        >>> ctx = SessionContext(
+        ...     request_id="req-123",
+        ...     user_id="user-456",
+        ...     ip_address="192.168.1.1",
+        ...     timestamp=datetime.now(),
+        ...     metadata={"platform": "web", "device": "desktop"}
         ... )
-        >>> print(context.timestamp)
-        1702275840000
-        >>> print(context.correlator)
-        session-abc
+        >>> ctx.request_id
+        'req-123'
+        >>> ctx.metadata["platform"]
+        'web'
 
-    Immutability:
-        The frozen=True parameter makes SessionContext immutable.
-        Attempting to modify will raise FrozenInstanceError:
-
-        >>> context.timestamp = 9999
-        Traceback (most recent call last):
-          ...
-        dataclasses.FrozenInstanceError: cannot assign to field 'timestamp'
+    Note:
+        While the dataclass is frozen, the metadata dict itself is mutable.
+        For true immutability, avoid modifying metadata after creation.
     """
 
-    timestamp: int
-    """Unix timestamp in milliseconds for [TIMESTAMP] macro per VAST 4.2 §2.4.8.2."""
-
-    correlator: str
-    """Unique session ID for [CORRELATOR] macro per VAST 4.2 §2.4.8.2."""
-
-    cachebusting: str
-    """Random value for [CACHEBUSTING] macro per VAST 4.2 §2.4.8.2."""
-
-    cookies: dict[str, str]
-    """HTTP cookies to preserve across session requests."""
-
     request_id: str
-    """Request tracing ID for logging and debugging."""
+    user_id: str | None
+    ip_address: str | None
+    timestamp: datetime
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class UpstreamSession(Protocol):
-    """Protocol for stateful ad serving sessions.
+class UpstreamSession(Protocol[T]):
+    """
+    Protocol for session-aware upstream services.
 
-    UpstreamSession provides a stateful interface for ad serving workflows
-    that need to maintain state across multiple requests (e.g., wrapper
-    resolution, frequency capping, budget tracking).
+    Extends the base Upstream protocol with session state tracking capabilities.
+    Implementations maintain immutable SessionContext and mutable state dict.
 
-    Key responsibilities:
-    - Maintain immutable SessionContext
-    - Send requests within session context (preserves cookies, correlator)
-    - Check frequency caps before serving ads
-    - Track budget spend per campaign
-    - Cleanup resources when done
+    Attributes:
+        context: Immutable session context
+        state: Mutable session state dictionary (implementation-specific)
 
-    Implementations should:
-    - Preserve session context across all requests
-    - Integrate with StateBackend for persistence
-    - Support frequency cap checking
-    - Support budget tracking
-    - Handle session lifecycle (creation, maintenance, cleanup)
+    Methods:
+        fetch: Fetch data from upstream with session context
+        close: Release resources and cleanup session
+        health_check: Check upstream health
 
-    Example Implementation:
+    Thread Safety:
+        Implementations must ensure thread-safe state updates when used
+        concurrently. Consider using asyncio.Lock for state modifications.
 
-        class VastSession:
-            def __init__(self, context: SessionContext, upstream: VastUpstream):
-                self._context = context
-                self._upstream = upstream
-
-            @property
-            def context(self) -> SessionContext:
-                return self._context
-
-            async def request(self, *, params: dict | None = None) -> str:
-                # Merge session context with request params
-                merged_params = {**params or {}}
-                merged_params["correlator"] = self._context.correlator
-                merged_params["timestamp"] = self._context.timestamp
-                return await self._upstream.fetch(params=merged_params)
-
-            async def check_frequency_cap(self, user_id: str) -> bool:
-                # Check with state backend
-                count = await self._state_backend.get_count(user_id)
-                return count < MAX_ADS_PER_USER
-
-            async def track_budget(self, campaign_id: str, amount: float) -> None:
-                # Track spend
-                await self._state_backend.add_spend(campaign_id, amount)
-
-            async def close(self) -> None:
-                # Cleanup
-                pass
+    Example:
+        >>> session: UpstreamSession[str] = VastSession(...)
+        >>> session.context.request_id
+        'req-123'
+        >>> result = await session.fetch(params={"w": "640"})
+        >>> session.state["request_count"]
+        1
     """
 
     @property
     def context(self) -> SessionContext:
-        """Get immutable session context.
-
-        Returns:
-            SessionContext: Immutable session context with timestamp, correlator,
-                          cachebusting, cookies, and request_id.
-
-        Example:
-            >>> context = session.context
-            >>> print(context.correlator)
-            session-abc123
-        """
+        """Get immutable session context."""
         ...
 
-    async def request(
+    @property
+    def state(self) -> dict[str, Any]:
+        """Get mutable session state."""
+        ...
+
+    async def fetch(
         self,
         *,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-        **kwargs: Any
-    ) -> str:
-        """Send request within session context.
-
-        Sends a request to the upstream service with session context applied.
-        The session context (correlator, timestamp, cookies) should be
-        automatically merged with request parameters.
+        context: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """
+        Fetch data from upstream.
 
         Args:
-            params: Request-specific parameters. These will be merged with
-                   session parameters (session params take precedence).
-                   Example: {"slot": "pre-roll", "uid": "user123"}
-            headers: HTTP headers. Session cookies should be included.
-                    Example: {"X-Custom": "value"}
-            **kwargs: Additional arguments (transport-specific, timeout, etc.)
+            params: Query parameters
+            headers: HTTP headers
+            context: Additional context data
+            timeout: Request timeout in seconds
+            **kwargs: Additional arguments
 
         Returns:
-            str: Response data (e.g., VAST XML for video ads)
+            Fetched data of type T
 
         Raises:
-            UpstreamError: If request to upstream fails
-            TimeoutError: If request exceeds timeout
-            DecodeError: If response cannot be decoded
-
-        Example:
-            >>> xml = await session.request(
-            ...     params={"slot": "pre-roll"},
-            ...     headers={"User-Agent": "MyPlayer/1.0"}
-            ... )
-            >>> print(len(xml))
-            1024
-        """
-        ...
-
-    async def check_frequency_cap(
-        self,
-        user_id: str,
-        limit: int | None = None,
-        window_seconds: int | None = None
-    ) -> bool:
-        """Check if user has exceeded frequency cap.
-
-        Checks whether the user has exceeded the configured frequency cap
-        (max ads per user per time window). Should check with a state backend
-        (Redis, database, or in-memory store).
-
-        Args:
-            user_id: User identifier to check cap for.
-                    Example: "user123" or "device-456"
-            limit: Maximum number of ads (None for default). Default: 3
-            window_seconds: Time window in seconds (None for default).
-                           Default: 3600 (1 hour)
-
-        Returns:
-            bool: True if ad can be served (cap not exceeded),
-                  False if cap is exceeded
-
-        Raises:
-            StateBackendError: If state backend is unavailable
-
-        Example:
-            >>> if await session.check_frequency_cap("user123"):
-            ...     ad = await session.request(params={...})
-            ... else:
-            ...     ad = await fallback_upstream.request(params={...})
-        """
-        ...
-
-    async def track_budget(
-        self,
-        campaign_id: str,
-        amount: float,
-        currency: str = "USD"
-    ) -> None:
-        """Track budget spend for campaign.
-
-        Records budget spend for a campaign (e.g., CPM cost). Should
-        store in state backend with campaign lifetime scope.
-
-        Args:
-            campaign_id: Campaign identifier.
-                        Example: "campaign-456"
-            amount: Amount spent (e.g., CPM cost in currency).
-                   Example: 2.50
-            currency: Currency code (default: USD).
-                     Example: "USD", "EUR", "GBP"
-
-        Raises:
-            StateBackendError: If state backend is unavailable
-            ValueError: If amount is negative
-
-        Example:
-            >>> await session.track_budget("campaign-456", 2.50)
-            >>> remaining = await session.get_remaining_budget("campaign-456")
-            >>> print(remaining)
-            97.50
+            UpstreamError: If fetch fails
+            UpstreamTimeout: If request times out
         """
         ...
 
     async def close(self) -> None:
-        """Release session resources.
+        """Release resources and cleanup session."""
+        ...
 
-        Cleanup method called when session is finished. Should:
-        - Close connections
-        - Flush any pending state changes
-        - Release memory/handles
-        - Log session metrics
+    async def health_check(self) -> bool:
+        """
+        Check upstream health.
 
-        Should be idempotent (safe to call multiple times).
-
-        Example:
-            >>> session = await upstream.create_session(context)
-            >>> try:
-            ...     ad = await session.request(params={...})
-            ... finally:
-            ...     await session.close()
+        Returns:
+            True if healthy, False otherwise
         """
         ...
+
+
+class VastSession:
+    """
+    VAST upstream session with state tracking.
+
+    Wraps VastUpstream to provide session-aware request handling with
+    immutable context and mutable state tracking. Maintains statistics
+    about requests, errors, and timing.
+
+    State Tracking:
+        - request_count: Total number of requests made
+        - last_request_time: Timestamp of most recent request
+        - errors: List of error messages encountered
+        - total_bytes: Total bytes fetched (if trackable)
+
+    Thread Safety:
+        State updates are protected by asyncio.Lock to ensure thread-safe
+        concurrent access. Multiple coroutines can safely share a VastSession.
+
+    Example:
+        >>> from datetime import datetime
+        >>> from xsp.core.transport import Transport
+        >>> from xsp.protocols.vast.upstream import VastUpstream
+        >>>
+        >>> # Create session context
+        >>> ctx = SessionContext(
+        ...     request_id="req-789",
+        ...     user_id="user-123",
+        ...     ip_address="10.0.0.1",
+        ...     timestamp=datetime.now(),
+        ...     metadata={"campaign_id": "camp-456"}
+        ... )
+        >>>
+        >>> # Create VAST upstream
+        >>> transport = ...  # Your transport implementation
+        >>> vast = VastUpstream(transport, endpoint="https://ads.example.com/vast")
+        >>>
+        >>> # Wrap in session
+        >>> session = VastSession(vast, ctx)
+        >>>
+        >>> # Fetch with automatic state tracking
+        >>> vast_xml = await session.fetch(params={"w": "640", "h": "480"})
+        >>> session.state["request_count"]
+        1
+        >>> session.state["last_request_time"]
+        datetime(...)
+
+    Attributes:
+        upstream: Underlying VastUpstream instance
+        context: Immutable session context
+        state: Mutable state dictionary
+    """
+
+    def __init__(self, upstream: VastUpstream, context: SessionContext) -> None:
+        """
+        Initialize VAST session.
+
+        Args:
+            upstream: VastUpstream instance to wrap
+            context: Immutable session context
+
+        Example:
+            >>> ctx = SessionContext(
+            ...     request_id="req-001",
+            ...     user_id="user-001",
+            ...     ip_address="192.168.1.100",
+            ...     timestamp=datetime.now()
+            ... )
+            >>> vast_upstream = VastUpstream(...)
+            >>> session = VastSession(vast_upstream, ctx)
+        """
+        self.upstream = upstream
+        self._context = context
+        self._state: dict[str, Any] = {
+            "request_count": 0,
+            "last_request_time": None,
+            "errors": [],
+            "total_bytes": 0,
+        }
+        self._lock = asyncio.Lock()
+
+    @property
+    def context(self) -> SessionContext:
+        """
+        Get immutable session context.
+
+        Returns:
+            SessionContext instance
+
+        Example:
+            >>> session.context.request_id
+            'req-001'
+            >>> session.context.user_id
+            'user-001'
+        """
+        return self._context
+
+    @property
+    def state(self) -> dict[str, Any]:
+        """
+        Get mutable session state.
+
+        Returns:
+            State dictionary with request statistics
+
+        Warning:
+            Direct modifications to this dict are not protected by the lock.
+            Use the provided methods for thread-safe updates.
+
+        Example:
+            >>> session.state["request_count"]
+            5
+            >>> session.state["errors"]
+            []
+        """
+        return self._state
+
+    async def fetch(
+        self,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        context: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """
+        Fetch VAST XML from upstream with session state tracking.
+
+        Automatically updates session state including request count,
+        last request time, and error tracking. Thread-safe for concurrent
+        requests.
+
+        Args:
+            params: Query parameters for VAST request
+            headers: HTTP headers
+            context: Additional context for macro substitution
+            timeout: Request timeout in seconds
+            **kwargs: Additional arguments passed to upstream
+
+        Returns:
+            VAST XML string
+
+        Raises:
+            UpstreamError: If upstream fetch fails
+            UpstreamTimeout: If request times out
+            TransportError: If transport operation fails
+
+        Example:
+            >>> # Basic fetch
+            >>> xml = await session.fetch(params={"w": "1920", "h": "1080"})
+            >>>
+            >>> # With context for macro substitution
+            >>> xml = await session.fetch(
+            ...     params={"w": "640"},
+            ...     context={"PLAYHEAD": "00:01:30"}
+            ... )
+            >>>
+            >>> # Check state after fetch
+            >>> session.state["request_count"]
+            1
+            >>> session.state["last_request_time"]
+            datetime(...)
+        """
+        # Merge session context into request context
+        merged_context = {
+            "request_id": self._context.request_id,
+            "user_id": self._context.user_id,
+            "ip_address": self._context.ip_address,
+            **(self._context.metadata or {}),
+            **(context or {}),
+        }
+
+        try:
+            # Fetch from upstream
+            result = await self.upstream.fetch(
+                params=params,
+                headers=headers,
+                context=merged_context,
+                timeout=timeout,
+                **kwargs,
+            )
+
+            # Update state (thread-safe)
+            async with self._lock:
+                self._state["request_count"] += 1
+                self._state["last_request_time"] = datetime.now()
+                # Track approximate response size
+                if isinstance(result, str):
+                    self._state["total_bytes"] += len(result.encode("utf-8"))
+
+            return result
+
+        except Exception as e:
+            # Track errors (thread-safe)
+            async with self._lock:
+                self._state["errors"].append(
+                    {
+                        "timestamp": datetime.now(),
+                        "error": str(e),
+                        "type": type(e).__name__,
+                    }
+                )
+            raise
+
+    async def close(self) -> None:
+        """
+        Close upstream and cleanup session resources.
+
+        Delegates to underlying VastUpstream.close(). State is preserved
+        but no further requests should be made after closing.
+
+        Example:
+            >>> await session.close()
+            >>> # session.state is still accessible
+            >>> session.state["request_count"]
+            10
+        """
+        await self.upstream.close()
+
+    async def health_check(self) -> bool:
+        """
+        Check upstream health.
+
+        Delegates to underlying VastUpstream.health_check() without
+        updating session state.
+
+        Returns:
+            True if upstream is healthy, False otherwise
+
+        Example:
+            >>> is_healthy = await session.health_check()
+            >>> if is_healthy:
+            ...     print("Upstream is operational")
+        """
+        return await self.upstream.health_check()
