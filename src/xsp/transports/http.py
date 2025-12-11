@@ -1,9 +1,16 @@
 """HTTP/HTTPS transport implementation."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
+if TYPE_CHECKING:
+    import httpx
+else:
+    try:
+        import httpx
+    except ImportError:
+        httpx = None  # type: ignore[assignment]
 from xsp.core.exceptions import (
     TransportConnectionError,
     TransportError,
@@ -65,7 +72,7 @@ class HttpTransport:
         """Return transport type."""
         return TransportType.HTTP
 
-    async def send(
+    async def request(
         self,
         endpoint: str,
         payload: bytes | None = None,
@@ -131,7 +138,7 @@ class HttpTransport:
         except Exception as e:
             raise TransportError(f"Transport error: {endpoint}") from e
 
-        return response.content
+        return cast(bytes, response.content)
 
     async def close(self) -> None:
         """Close HTTP client if owned."""

@@ -10,6 +10,7 @@ from xsp.core.exceptions import (
     ValidationError,
     XspError,
 )
+from xsp.core.protocol import ProtocolHandler
 from xsp.core.state import InMemoryStateBackend, RedisStateBackend, StateBackend
 from xsp.core.session import SessionContext, UpstreamSession
 from xsp.core.transport import Transport, TransportType
@@ -24,6 +25,7 @@ __all__ = [
     "InMemoryStateBackend",
     "Metadata",
     "Params",
+    "ProtocolHandler",
     "RedisStateBackend",
     "StateBackend",
     "SessionContext",

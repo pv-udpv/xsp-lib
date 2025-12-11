@@ -20,9 +20,9 @@ async def main():
         endpoint="memory://test",
     )
 
-    # Fetch data
-    print("Fetching data from memory transport...")
-    result = await upstream.fetch()
+    # Request data
+    print("Requesting data from memory transport...")
+    result = await upstream.request()
     print(f"Response: {result}")
     print(f"Message: {result['message']}")
 

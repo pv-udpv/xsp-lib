@@ -1,12 +1,17 @@
-"""Protocol-agnostic orchestration layer for xsp-lib."""
+"""Orchestrator module for managing protocol handlers and sessions."""
 
-from xsp.orchestrator.orchestrator import Orchestrator
-from xsp.orchestrator.protocol import ProtocolHandler
-from xsp.orchestrator.schemas import AdRequest, AdResponse
+from .schemas import (
+    AdRequest,
+    AdResponse,
+    VastRequest,
+    VastResponse,
+    VastSession,
+)
 
 __all__ = [
-    "Orchestrator",
-    "ProtocolHandler",
     "AdRequest",
     "AdResponse",
+    "VastRequest",
+    "VastResponse",
+    "VastSession",
 ]

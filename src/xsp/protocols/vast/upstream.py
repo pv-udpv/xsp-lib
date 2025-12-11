@@ -1,5 +1,6 @@
 """VAST and VMAP upstream implementations."""
 
+import uuid
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -15,6 +16,7 @@ from xsp.core.exceptions import (
     VastTimeoutError,
 )
 from xsp.core.transport import Transport
+from xsp.orchestrator.schemas import VastSession
 
 from .macros import MacroSubstitutor
 from .types import VastVersion
@@ -71,7 +73,7 @@ class VastUpstream(BaseUpstream[str]):
             else None
         )
 
-    async def fetch(
+    async def request(
         self,
         *,
         params: dict[str, Any] | None = None,
@@ -81,7 +83,7 @@ class VastUpstream(BaseUpstream[str]):
         **kwargs: Any,
     ) -> str:
         """
-        Fetch VAST XML from upstream.
+        Request VAST XML from upstream.
 
         Args:
             params: Query parameters for VAST request
@@ -102,6 +104,14 @@ class VastUpstream(BaseUpstream[str]):
         if self.macro_substitutor and context:
             endpoint = self.macro_substitutor.substitute(endpoint, context)
 
+        # Request via parent
+        xml = await super().request(
+            endpoint=endpoint,
+            params=None,  # Already in URL
+            headers=headers,
+            context=context,
+            **kwargs,
+        )
         # Fetch via parent with error mapping
         try:
             xml = await super().fetch(
@@ -200,7 +210,7 @@ class VastUpstream(BaseUpstream[str]):
             url: Content URL (may contain Cyrillic)
             params: Additional parameters
             context: Macro context
-            **kwargs: Passed to fetch()
+            **kwargs: Passed to request()
 
         Returns:
             VAST XML string
@@ -214,7 +224,36 @@ class VastUpstream(BaseUpstream[str]):
         if url:
             vast_params["url"] = url
 
-        return await self.fetch(params=vast_params, context=context, **kwargs)
+        return await self.request(params=vast_params, context=context, **kwargs)
+
+    def create_session(self, vast_xml: str | None = None) -> VastSession:
+        """
+        Create a new VAST session.
+
+        A session tracks the state of a VAST ad request including
+        wrapper chains, impressions, tracking events, etc.
+
+        Args:
+            vast_xml: Optional initial VAST XML for the session
+
+        Returns:
+            VastSession with unique session_id
+
+        Example:
+            >>> upstream = VastUpstream(transport, endpoint)
+            >>> xml = await upstream.request()
+            >>> session = upstream.create_session(xml)
+            >>> print(session['session_id'])
+        """
+        session_id = str(uuid.uuid4())
+        session: VastSession = {
+            "session_id": session_id,
+        }
+
+        if vast_xml:
+            session["vast_xml"] = vast_xml
+
+        return session
 
 
 class VmapUpstream(VastUpstream):
