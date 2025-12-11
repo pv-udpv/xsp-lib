@@ -17,6 +17,9 @@ from xsp.protocols.vast.types import (
 )
 from xsp.protocols.vast.upstream import VastUpstream, VmapUpstream
 from xsp.protocols.vast.validation import VastValidationError, validate_vast_xml
+from xsp.protocols.vast.error_tracker import VastErrorCode, VastErrorTracker
+from xsp.protocols.vast.cache import VastCacheLayer
+from xsp.protocols.vast.metrics import VastMetrics, VastMetricLabels
 
 __all__ = [
     "VastProtocolHandler",
@@ -34,4 +37,9 @@ __all__ = [
     "VastVersion",
     "VmapUpstream",
     "validate_vast_xml",
+    "VastErrorCode",
+    "VastErrorTracker",
+    "VastCacheLayer",
+    "VastMetrics",
+    "VastMetricLabels",
 ]
