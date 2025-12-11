@@ -25,7 +25,6 @@ IAB Compliance:
 import asyncio
 import logging
 import time
-from typing import Any
 
 from xsp.protocols.vast import (
     VastCacheLayer,
@@ -68,15 +67,15 @@ SAMPLE_VAST_INLINE = """<?xml version="1.0" encoding="UTF-8"?>
                     <Linear>
                         <Duration>00:00:30</Duration>
                         <MediaFiles>
-                            <MediaFile id="media-1" delivery="progressive" type="video/mp4" 
+                            <MediaFile id="media-1" delivery="progressive" type="video/mp4"
                                        width="1920" height="1080" bitrate="5000">
                                 <![CDATA[https://cdn.example.com/ads/prod-12345-1080p.mp4]]>
                             </MediaFile>
-                            <MediaFile id="media-2" delivery="progressive" type="video/mp4" 
+                            <MediaFile id="media-2" delivery="progressive" type="video/mp4"
                                        width="1280" height="720" bitrate="2500">
                                 <![CDATA[https://cdn.example.com/ads/prod-12345-720p.mp4]]>
                             </MediaFile>
-                            <MediaFile id="media-3" delivery="progressive" type="video/mp4" 
+                            <MediaFile id="media-3" delivery="progressive" type="video/mp4"
                                        width="640" height="480" bitrate="1000">
                                 <![CDATA[https://cdn.example.com/ads/prod-12345-480p.mp4]]>
                             </MediaFile>
@@ -275,7 +274,7 @@ async def demonstrate_caching(
     upstream: VastUpstream, cache: VastCacheLayer, metrics: VastMetrics
 ) -> None:
     """Demonstrate caching with cache miss and hit scenarios.
-    
+
     Shows:
     - Cache key generation from request parameters
     - Cache miss on first request
@@ -367,7 +366,8 @@ async def demonstrate_caching(
         metrics.record_cache_hit()
         print(f"   ✓ Served {len(cached_response)} bytes in {cache_duration*1000:.2f}ms")
         print()
-        print(f"   Performance improvement: ~{(duration/cache_duration):.1f}x faster than upstream fetch")
+        improvement = duration / cache_duration
+        print(f"   Performance improvement: ~{improvement:.1f}x faster than upstream fetch")
         print()
     else:
         logger.warning("✗ Cache miss (unexpected on second request)")
@@ -389,7 +389,7 @@ async def demonstrate_error_tracking(
     error_tracker: VastErrorTracker, metrics: VastMetrics
 ) -> None:
     """Demonstrate error tracking with various IAB VAST 4.2 error codes.
-    
+
     Shows:
     - Different error scenarios (XML parsing, wrapper timeout, file not found)
     - Error pixel URLs with VAST macros
@@ -463,20 +463,20 @@ async def demonstrate_error_tracking(
         example_url = error_urls[0]
         substituted = example_url.replace("[ERRORCODE]", str(error_code.value))
         substituted = substituted.replace("[TIMESTAMP]", str(int(time.time() * 1000)))
-        print(f"   Example substituted URL:")
+        print("   Example substituted URL:")
         print(f"   {substituted}")
         print()
 
     print("Error Tracking Summary:")
     print(f"   • Total errors tracked: {len(error_scenarios)}")
     print(f"   • Total pixels fired: {len(error_scenarios) * len(error_urls)}")
-    print(f"   • All pixels fired in parallel for optimal performance")
+    print("   • All pixels fired in parallel for optimal performance")
     print()
 
 
 async def demonstrate_wrapper_resolution(metrics: VastMetrics) -> None:
     """Demonstrate wrapper chain resolution with metrics tracking.
-    
+
     Shows:
     - Wrapper chain concept (wrapper → wrapper → inline)
     - Chain depth tracking
@@ -534,7 +534,7 @@ async def demonstrate_wrapper_resolution(metrics: VastMetrics) -> None:
 
 def display_statistics(cache: VastCacheLayer, metrics: VastMetrics) -> None:
     """Display comprehensive statistics from cache and metrics.
-    
+
     Shows:
     - Cache hit/miss rates
     - Cache size and evictions

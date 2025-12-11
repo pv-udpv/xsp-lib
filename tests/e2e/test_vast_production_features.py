@@ -6,7 +6,7 @@ operations as per IAB VAST 4.2 specification.
 
 import asyncio
 import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -20,7 +20,7 @@ from xsp.protocols.vast import (
     VastMetrics,
     VastUpstream,
 )
-from xsp.protocols.vast.cache import CacheStats, VastCacheConfig
+from xsp.protocols.vast.cache import VastCacheConfig
 from xsp.protocols.vast.error_tracker import VastErrorTrackerConfig
 from xsp.transports.memory import MemoryTransport
 
@@ -41,7 +41,8 @@ def sample_vast_xml() -> str:
                     <Linear>
                         <Duration>00:00:30</Duration>
                         <MediaFiles>
-                            <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                            <MediaFile delivery="progressive" type="video/mp4"
+                                       width="1920" height="1080">
                                 <![CDATA[https://cdn.example.com/video.mp4]]>
                             </MediaFile>
                         </MediaFiles>
@@ -243,7 +244,7 @@ async def test_wrapper_chain_with_metrics(
 
     # Create resolver
     config = VastChainConfig(max_depth=5, selection_strategy="highest_bitrate")
-    resolver = VastChainResolver(
+    _resolver = VastChainResolver(
         config=config, upstreams={"primary": wrapper_upstream, "fallback": inline_upstream}
     )
 
@@ -589,7 +590,7 @@ async def test_performance_benchmarks(cache_layer: VastCacheLayer):
     get_ops_per_sec = num_ops / get_duration
 
     # Log performance results (assertions would be environment-dependent)
-    print(f"\nPerformance Results:")
+    print("\nPerformance Results:")
     print(f"  Cache SET: {set_ops_per_sec:.2f} ops/sec")
     print(f"  Cache GET: {get_ops_per_sec:.2f} ops/sec")
 
