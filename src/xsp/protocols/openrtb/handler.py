@@ -8,13 +8,12 @@ References:
 """
 
 import uuid
-from typing import Any
 
 from xsp.core.exceptions import OpenRTBNoBidError
 from xsp.orchestrator.protocol import ProtocolHandler
 from xsp.orchestrator.schemas import AdRequest, AdResponse
 
-from .types import DEVICE_TYPE_MAP, BidRequest, BidResponse, Impression
+from .types import DEVICE_TYPE_MAP, BidRequest, BidResponse, Device, Impression, Site, User
 from .upstream import OpenRTBUpstream
 
 
@@ -270,7 +269,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
 
         return impression
 
-    def _build_device(self, request: AdRequest) -> dict[str, Any] | None:
+    def _build_device(self, request: AdRequest) -> Device | None:
         """Build device object from AdRequest.
 
         Args:
@@ -282,7 +281,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
         References:
             OpenRTB 2.6 §3.2.18 - Device Object
         """
-        device: dict[str, Any] = {}
+        device: Device = {}
 
         # IP address
         if "ip_address" in request:
@@ -317,7 +316,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
 
         return device if device else None
 
-    def _build_user(self, request: AdRequest) -> dict[str, Any] | None:
+    def _build_user(self, request: AdRequest) -> User | None:
         """Build user object from AdRequest.
 
         Args:
@@ -329,7 +328,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
         References:
             OpenRTB 2.6 §3.2.20 - User Object
         """
-        user: dict[str, Any] = {}
+        user: User = {}
 
         # User ID
         if "user_id" in request:
@@ -344,7 +343,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
 
         return user if user else None
 
-    def _build_site(self, request: AdRequest) -> dict[str, Any] | None:
+    def _build_site(self, request: AdRequest) -> Site | None:
         """Build site object from AdRequest.
 
         Args:
@@ -356,7 +355,7 @@ class OpenRTBProtocolHandler(ProtocolHandler):
         References:
             OpenRTB 2.6 §3.2.13 - Site Object
         """
-        site: dict[str, Any] = {}
+        site: Site = {}
 
         # Content URL → page
         if "content_url" in request:

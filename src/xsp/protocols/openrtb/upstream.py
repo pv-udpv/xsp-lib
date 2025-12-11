@@ -21,6 +21,7 @@ from xsp.core.exceptions import (
     TransportConnectionError,
     TransportError,
     TransportTimeoutError,
+    UpstreamTimeout,
 )
 from xsp.core.transport import Transport
 
@@ -172,6 +173,8 @@ class OpenRTBUpstream(BaseUpstream[str]):
             )
         except TransportTimeoutError as e:
             raise OpenRTBTimeoutError(str(e)) from e
+        except UpstreamTimeout as e:
+            raise OpenRTBTimeoutError(str(e)) from e
         except TransportConnectionError as e:
             raise OpenRTBNetworkError(str(e)) from e
         except TransportError as e:
@@ -230,4 +233,5 @@ class OpenRTBUpstream(BaseUpstream[str]):
             2.50
         """
         json_response = await self.request(payload=bid_request, timeout=timeout, **kwargs)
-        return json.loads(json_response)
+        parsed: BidResponse = json.loads(json_response)
+        return parsed
