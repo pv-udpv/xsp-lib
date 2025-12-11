@@ -1,1 +1,1 @@
-"""OpenRTB protocol tests."""
+"""Tests for OpenRTB protocol implementation."""

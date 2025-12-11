@@ -12,35 +12,12 @@ Schemas:
     - VastSession: VAST session state
 """
 
-from typing import Any, NotRequired, TypedDict
-"""Protocol-agnostic request and response schemas using TypedDict."""
-
 from typing import Any, NotRequired, Required, TypedDict
 
 
 class AdRequest(TypedDict, total=False):
-    """
-    Protocol-agnostic ad request schema.
+    """Protocol-agnostic ad request schema.
 
-    This is the base schema that all protocol-specific requests extend.
-    Uses the extension pattern via the 'extensions' field to allow
-    protocol-specific data without polluting the base schema.
-
-    Fields:
-        endpoint: Target endpoint/URL for the request
-        params: Query parameters
-        headers: HTTP headers
-        timeout: Request timeout in seconds
-        context: Additional context data (e.g., macro substitution)
-        extensions: Protocol-specific extensions
-    """
-
-    endpoint: NotRequired[str]
-    params: NotRequired[dict[str, Any]]
-    headers: NotRequired[dict[str, str]]
-    timeout: NotRequired[float]
-    context: NotRequired[dict[str, Any]]
-    extensions: NotRequired[dict[str, Any]]
     Flexible schema that works across VAST, VMAP, OpenRTB, and custom protocols.
 
     Required fields:
@@ -109,23 +86,6 @@ class AdRequest(TypedDict, total=False):
     # Protocol-specific extensions
     extensions: NotRequired[dict[str, Any]]
     """Protocol-specific extensions."""
-
-
-class AdResponse(TypedDict, total=False):
-    """
-    Protocol-agnostic ad response schema.
-
-    Base schema for all protocol-specific responses.
-
-    Fields:
-        data: Response payload (protocol-specific format)
-        metadata: Response metadata (headers, timing, etc.)
-        extensions: Protocol-specific extensions
-    """
-
-    data: Any
-    metadata: NotRequired[dict[str, Any]]
-    extensions: NotRequired[dict[str, Any]]
 
 
 # VAST-specific schemas
@@ -203,6 +163,11 @@ class VastSession(TypedDict, total=False):
     creative_url: NotRequired[str]
     companion_ads: NotRequired[list[dict[str, Any]]]
     extensions: NotRequired[dict[str, Any]]
+
+
+class AdResponse(TypedDict, total=False):
+    """Protocol-agnostic ad response schema.
+
     Flexible schema that works across VAST, VMAP, OpenRTB, and custom protocols.
 
     Required fields:

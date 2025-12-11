@@ -59,3 +59,31 @@ class VastHttpError(VastError):
 
 class VastParseError(VastError):
     """VAST XML parsing error."""
+
+
+class OpenRTBError(UpstreamError):
+    """OpenRTB protocol error."""
+
+
+class OpenRTBTimeoutError(OpenRTBError):
+    """OpenRTB request timed out."""
+
+
+class OpenRTBNetworkError(OpenRTBError):
+    """OpenRTB network error."""
+
+
+class OpenRTBHttpError(OpenRTBError):
+    """OpenRTB HTTP error."""
+
+    def __init__(self, message: str, status_code: int):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class OpenRTBParseError(OpenRTBError):
+    """OpenRTB JSON parsing error."""
+
+
+class OpenRTBNoBidError(OpenRTBError):
+    """No bid received from bidder."""
