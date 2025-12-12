@@ -43,10 +43,14 @@ async def main() -> None:
         validate_xml=True,
     )
 
-    # Fetch VAST XML
-    print("Fetching VAST XML...")
-    vast_xml = await upstream.fetch()
+    # Request VAST XML
+    print("Requesting VAST XML...")
+    vast_xml = await upstream.request()
     print(f"VAST XML ({len(vast_xml)} bytes):\n{vast_xml[:200]}...\n")
+
+    # Create a session
+    session = upstream.create_session(vast_xml)
+    print(f"Created VAST session: {session['session_id']}")
 
     # Cleanup
     await upstream.close()

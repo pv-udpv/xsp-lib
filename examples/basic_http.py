@@ -16,9 +16,9 @@ async def main():
         endpoint="https://httpbin.org/get",
     )
 
-    # Fetch data
-    print("Fetching data from httpbin.org...")
-    result = await upstream.fetch(params={"key": "value"})
+    # Request data
+    print("Requesting data from httpbin.org...")
+    result = await upstream.request(params={"key": "value"})
     print(f"Response:\n{result[:200]}...")
 
     # Cleanup

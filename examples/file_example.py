@@ -23,9 +23,9 @@ async def main():
         endpoint=str(fixtures_path),
     )
 
-    # Fetch data
-    print(f"Fetching data from: {fixtures_path}")
-    result = await upstream.fetch()
+    # Request data
+    print(f"Requesting data from: {fixtures_path}")
+    result = await upstream.request()
     print(f"Response: {result}")
     print(f"Service: {result['service']}")
     print(f"Protocols: {', '.join(result['protocols'])}")

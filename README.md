@@ -34,6 +34,15 @@ poetry install
 
 See [documentation](./docs/) for comprehensive guides.
 
+## 🤖 AI-Enhanced Development
+
+This repository uses **GitHub Copilot with MCP** (Model Context Protocol) for enhanced development:
+- Custom agents: `@orchestrator`, `@developer`, `@tester`, `@doc-writer`
+- Automatic IAB specification access during development
+- Protocol-aware code suggestions and validation
+
+Learn more: [AGENTS.md](AGENTS.md) | [MCP Integration Guide](docs/development/mcp-integration.md)
+
 ## 🧪 Tests
 
 ```bash

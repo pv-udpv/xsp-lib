@@ -20,7 +20,7 @@ class MemoryTransport:
         """Return transport type."""
         return TransportType.MEMORY
 
-    async def send(
+    async def request(
         self,
         endpoint: str,
         payload: bytes | None = None,
