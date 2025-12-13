@@ -1,0 +1,128 @@
+name: Auto Update PRs
+
+# Automatically updates all open PRs with latest main branch changes
+# Note: PRs with merge conflicts will be skipped and require manual resolution
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force update even if conflicts exist'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  update-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update all open PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔍 Fetching open pull requests..."
+          
+          # Get all open PRs
+          prs=$(gh pr list --state open --json number,headRefName,title --jq '.[] | "\(.number)|\(.headRefName)|\(.title)"')
+          
+          if [ -z "$prs" ]; then
+            echo "ℹ️  No open pull requests found"
+            exit 0
+          fi
+          
+          echo "📋 Found $(echo "$prs" | wc -l) open PR(s)"
+          echo ""
+          
+          # Process each PR
+          echo "$prs" | while IFS='|' read -r pr_number branch_name pr_title; do
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🔄 PR #$pr_number: $pr_title"
+            echo "   Branch: $branch_name"
+            
+            # Get current HEAD SHA for safety check
+            head_sha=$(gh pr view $pr_number --json headRefOid -q .headRefOid)
+            echo "   Current HEAD: ${head_sha:0:7}"
+            
+            # Attempt to update the branch
+            update_response=$(gh api \
+              repos/${{ github.repository }}/pulls/$pr_number/update-branch \
+              -X PUT \
+              -f expected_head_sha="$head_sha" 2>&1)
+            
+            update_status=$?
+            
+            if [ $update_status -eq 0 ]; then
+              echo "   ✅ Successfully queued for update"
+              
+              # Add a comment to the PR
+              gh pr comment $pr_number --body "🤖 **Auto-update**: Branch updated with latest changes from \`main\`
+              
+<details>
+<summary>Update details</summary>
+
+- Triggered by: push to \`main\`
+- Commit: ${{ github.sha }}
+- Workflow: [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+</details>" || echo "   ⚠️  Could not add comment"
+            else
+              # Check if it's a conflict error
+              if echo "$update_response" | grep -q "merge conflict\|422"; then
+                echo "   ⚠️  MERGE CONFLICT detected - manual resolution required"
+                
+                # Comment on PR about conflict
+                gh pr comment $pr_number --body "⚠️ **Auto-update failed**: This PR has merge conflicts with \`main\`
+
+**Action required:**
+\`\`\`bash
+git checkout $branch_name
+git merge origin/main
+# Resolve conflicts
+git commit
+git push
+\`\`\`
+
+Or update via GitHub UI using the 'Update branch' button and resolve conflicts there.
+
+---
+<details>
+<summary>Error details</summary>
+
+\`\`\`
+$update_response
+\`\`\`
+</details>" || echo "   ⚠️  Could not add conflict comment"
+              else
+                echo "   ❌ Update failed: $update_response"
+              fi
+            fi
+            
+            echo ""
+            sleep 2  # Rate limiting protection
+          done
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✨ PR update process completed"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### 📊 Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Repository: \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Base branch: \`main\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for detailed status of each PR." >> $GITHUB_STEP_SUMMARY
