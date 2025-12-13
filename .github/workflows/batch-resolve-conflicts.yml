@@ -1,0 +1,283 @@
+name: Batch Resolve Conflicts
+
+# Scheduled workflow to batch-resolve merge conflicts across multiple PRs
+# Assigns Copilot to analyze patterns and create unified resolution PR
+
+on:
+  schedule:
+    # Run daily at 03:00 UTC (06:00 MSK)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run - analyze only, do not create PR'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  analyze-conflicts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    outputs:
+      has_conflicts: ${{ steps.check.outputs.has_conflicts }}
+      conflict_count: ${{ steps.check.outputs.count }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for conflict issues
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔍 Searching for open merge conflict issues..."
+          
+          # Get all issues with needs-batch-resolve label
+          issues=$(gh issue list \
+            --label "needs-batch-resolve" \
+            --state open \
+            --json number,title,body,labels \
+            --jq '.[] | "\(.number)|\(.title)"')
+          
+          if [ -z "$issues" ]; then
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            echo "count=0" >> $GITHUB_OUTPUT
+            echo "✅ No merge conflict issues found - all clear!"
+            exit 0
+          fi
+          
+          count=$(echo "$issues" | wc -l)
+          echo "has_conflicts=true" >> $GITHUB_OUTPUT
+          echo "count=$count" >> $GITHUB_OUTPUT
+          
+          echo "📊 Found $count issue(s) requiring batch resolution:"
+          echo "$issues" | while IFS='|' read -r issue_num issue_title; do
+            echo "  - #$issue_num: $issue_title"
+          done
+          
+          # Save issues to artifact for next job
+          echo "$issues" > /tmp/conflict_issues.txt
+
+      - name: Upload conflict issues list
+        if: steps.check.outputs.has_conflicts == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: conflict-issues
+          path: /tmp/conflict_issues.txt
+          retention-days: 1
+
+  resolve-conflicts:
+    needs: analyze-conflicts
+    if: needs.analyze-conflicts.outputs.has_conflicts == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download conflict issues
+        uses: actions/download-artifact@v4
+        with:
+          name: conflict-issues
+          path: /tmp
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create batch resolution branch
+        id: branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH_NAME="auto/batch-conflict-resolve-$(date +%Y%m%d-%H%M%S)"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          echo "🌱 Creating resolution branch: $BRANCH_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
+
+      - name: Analyze and resolve conflicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🤖 Analyzing merge conflicts..."
+          
+          # Extract PR numbers from conflict issues
+          pr_numbers=$(cat /tmp/conflict_issues.txt | grep -oP 'PR #\K\d+' | sort -u)
+          
+          echo "📋 Affected PRs:"
+          echo "$pr_numbers" | while read pr_num; do
+            echo "  - PR #$pr_num"
+            
+            # Get PR details
+            pr_branch=$(gh pr view $pr_num --json headRefName -q .headRefName)
+            echo "    Branch: $pr_branch"
+            
+            # Fetch and attempt merge to identify conflicts
+            git fetch origin "$pr_branch:$pr_branch" || true
+            
+            echo "    Analyzing conflict patterns..."
+            git merge --no-commit --no-ff origin/$pr_branch 2>&1 | tee /tmp/merge_output_$pr_num.txt || true
+            
+            # Extract conflicted files
+            conflicted_files=$(git diff --name-only --diff-filter=U 2>/dev/null || echo "")
+            
+            if [ -n "$conflicted_files" ]; then
+              echo "    ⚠️  Conflicted files:"
+              echo "$conflicted_files" | while read file; do
+                echo "      - $file"
+              done
+            fi
+            
+            # Abort merge for now
+            git merge --abort 2>/dev/null || true
+          done
+          
+          echo ""
+          echo "💡 Creating resolution strategy..."
+
+      - name: Create batch resolution issue
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conflict_count="${{ needs.analyze-conflicts.outputs.conflict_count }}"
+          
+          # Build issue body with all conflicts
+          issue_body="## 🤖 Batch Conflict Resolution Request
+
+**Detected:** $conflict_count merge conflict(s) requiring resolution  
+**Branch:** \`${{ steps.branch.outputs.branch_name }}\`  
+**Triggered by:** Scheduled workflow
+
+### 📊 Conflicts Summary
+
+"
+          
+          # Add each conflict issue
+          cat /tmp/conflict_issues.txt | while IFS='|' read -r issue_num issue_title; do
+            issue_body="$issue_body- Issue #$issue_num: $issue_title\n"
+          done
+          
+          issue_body="$issue_body
+### 🔧 Resolution Strategy
+
+**@copilot** Please analyze the following:
+
+1. Review all conflicted PRs and identify common patterns
+2. Determine if conflicts are:
+   - Simple (auto-resolvable)
+   - Complex (require human decision)
+   - Structural (suggest refactoring)
+3. Create a unified resolution approach
+4. Generate code changes to resolve conflicts
+5. Ensure all tests pass after resolution
+
+### 📝 Action Items
+
+- [ ] Analyze conflict patterns across all affected PRs
+- [ ] Identify root cause (e.g., pyproject.toml changes, import restructuring)
+- [ ] Propose resolution strategy
+- [ ] Create PR with batch fixes
+- [ ] Link resolved issues
+- [ ] Request human review
+
+### 🔗 Related Issues
+
+"
+          
+          # Link all conflict issues
+          cat /tmp/conflict_issues.txt | while IFS='|' read -r issue_num issue_title; do
+            issue_body="$issue_body- Resolves #$issue_num\n"
+          done
+          
+          issue_body="$issue_body
+---
+
+**Auto-generated** by workflow: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          # Create the coordination issue
+          coordination_issue=$(gh issue create \
+            --title "🤖 Batch resolve $conflict_count merge conflicts" \
+            --body "$issue_body" \
+            --label "auto-update,batch-resolution,copilot" \
+            --assignee "@me")
+          
+          echo "✅ Created coordination issue: $coordination_issue"
+          echo "coordination_issue=$coordination_issue" >> $GITHUB_ENV
+          
+          # Assign Copilot to the issue (if supported)
+          echo "🤖 Assigning Copilot to analyze and resolve conflicts..."
+          # Note: This requires Copilot Workspace API access
+          # For now, just tag it for Copilot attention
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### 📊 Batch Resolution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Conflicts Found:** ${{ needs.analyze-conflicts.outputs.conflict_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Resolution Branch:** \`${{ steps.branch.outputs.branch_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "⚠️ **Dry Run Mode** - No issues or PRs created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review coordination issue for conflict analysis" >> $GITHUB_STEP_SUMMARY
+            echo "2. Copilot will propose resolution strategy" >> $GITHUB_STEP_SUMMARY
+            echo "3. Human review and merge batch resolution PR" >> $GITHUB_STEP_SUMMARY
+            echo "4. Original conflict issues will auto-close" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View conflict issues](https://github.com/${{ github.repository }}/issues?q=label:needs-batch-resolve)" >> $GITHUB_STEP_SUMMARY
+
+  notify-completion:
+    needs: [analyze-conflicts, resolve-conflicts]
+    if: always() && needs.analyze-conflicts.outputs.has_conflicts == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    
+    steps:
+      - name: Update conflict issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔔 Notifying conflict issues about batch resolution..."
+          
+          gh issue list --label "needs-batch-resolve" --state open --json number --jq '.[].number' | while read issue_num; do
+            gh issue comment $issue_num --body "🤖 **Batch resolution initiated**
+
+This conflict is now part of a batch resolution process.
+
+**Status:** Analysis in progress  
+**Workflow:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+You'll be notified when a resolution PR is ready for review."
+          done
