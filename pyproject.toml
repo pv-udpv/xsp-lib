@@ -1,28 +1,49 @@
-[tool.poetry]
+[project]
 name = "xsp-lib"
 version = "0.1.0"
 description = "Exchange Protocols Library"
-authors = ["AdTech Team"]
 readme = "README.md"
-packages = [{include = "xsp", from = "src"}]
+requires-python = ">=3.11"
+authors = [
+    {name = "AdTech Team"}
+]
+keywords = ["exchange", "protocols", "advertising", "vast", "openrtb"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-aiohttp = "^3.8.0"
-lxml = "^4.9.0"
-pydantic = "^2.0.0"
-pydantic-settings = "^2.2.0"
-pyyaml = "^6.0"
-tomlkit = "^0.13.3"
+dependencies = [
+    "aiohttp>=3.8.0",
+    "lxml>=4.9.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.2.0",
+    "pyyaml>=6.0",
+    "tomlkit>=0.13.3",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.2.0"
-pytest-asyncio = "^0.20.0"
-mypy = "^1.7.0"
-ruff = "^0.1.6"
-lxml-stubs = "^0.5.1"
-pre-commit = "^4.0.0"
-bandit = {extras = ["toml"], version = "^1.7.10"}
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.2.0",
+    "pytest-asyncio>=0.20.0",
+    "mypy>=1.7.0",
+    "ruff>=0.1.6",
+    "lxml-stubs>=0.5.1",
+    "pre-commit>=4.0.0",
+    "bandit[toml]>=1.7.10",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xsp"]
 
 [tool.ruff]
 line-length = 100
@@ -52,7 +73,3 @@ markers = [
     "network: tests that require network access",
     "slow: slow running tests",
 ]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
