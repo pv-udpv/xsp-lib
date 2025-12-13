@@ -85,7 +85,12 @@ jobs:
           
           echo "🔔 Triggering cascade for version: $VERSION"
 
-      - name: Trigger xsp-app update
+      # ========================================
+      # PIP DEPENDENCY UPDATES
+      # Repos using xsp-lib via pip install
+      # ========================================
+
+      - name: Trigger xsp-app update (pip)
         continue-on-error: true
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -102,7 +107,7 @@ jobs:
               "workflowUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
 
-      - name: Trigger xsp-api update
+      - name: Trigger xsp-api update (pip)
         continue-on-error: true
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -116,7 +121,7 @@ jobs:
               "triggeredBy": "${{ github.repository }}"
             }
 
-      - name: Trigger xsp-worker update
+      - name: Trigger xsp-worker update (pip)
         continue-on-error: true
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -130,16 +135,44 @@ jobs:
               "triggeredBy": "${{ github.repository }}"
             }
 
+      # ========================================
+      # SUBMODULE UPDATES
+      # Repos using xsp-lib as git submodule
+      # ========================================
+
+      - name: Trigger zbst-tech submodule update
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CASCADE_PAT }}
+          repository: pv-udpv/zbst-tech
+          event-type: submodule-update
+          client-payload: |
+            {
+              "submodule_path": "xsp-lib",
+              "version": "${{ steps.release_info.outputs.version }}",
+              "changelog": ${{ steps.release_info.outputs.changelog }},
+              "triggeredBy": "${{ github.repository }}",
+              "releaseUrl": "${{ github.event.release.html_url }}",
+              "workflowUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+
       - name: Summary
         if: always()
         run: |
           echo "### 🔔 Cascade Update Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.release_info.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered repositories:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pip dependencies:**" >> $GITHUB_STEP_SUMMARY
           echo "- \`pv-udpv/xsp-app\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`pv-udpv/xsp-api\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`pv-udpv/xsp-worker\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Submodules:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`pv-udpv/zbst-tech\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Note:** If repositories don't exist yet, triggers will fail silently (continue-on-error)." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
