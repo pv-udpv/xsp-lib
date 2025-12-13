@@ -13,8 +13,8 @@ from xsp.core.exceptions import (
     XspError,
 )
 from xsp.core.protocol import ProtocolHandler
-from xsp.core.session import SessionContext, UpstreamSession, VastSession
 from xsp.core.state import InMemoryStateBackend, RedisStateBackend, StateBackend
+from xsp.core.session import SessionContext, UpstreamSession
 from xsp.core.transport import Transport, TransportType
 from xsp.core.types import Context, Headers, Metadata, Params
 from xsp.core.upstream import Upstream
@@ -27,12 +27,12 @@ __all__ = [
     "Dialer",
     "FrequencyCapExceeded",
     "Headers",
-    "HttpDialer",
     "InMemoryStateBackend",
     "Metadata",
     "Params",
     "ProtocolHandler",
     "RedisStateBackend",
+    "StateBackend",
     "SessionContext",
     "StateBackend",
     "Transport",
