@@ -1,7 +1,7 @@
 name: Auto Update PRs
 
 # Automatically updates all open PRs with latest main branch changes
-# Note: PRs with merge conflicts will be skipped and require manual resolution
+# Creates GitHub issues for PRs with merge conflicts for batch resolution
 
 on:
   push:
@@ -20,12 +20,22 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Create labels if they don't exist
+          gh label create "merge-conflict" --description "PR has merge conflicts with main" --color "d73a4a" --force || true
+          gh label create "auto-update" --description "Automated update process" --color "0e8a16" --force || true
+          gh label create "needs-batch-resolve" --description "Awaiting batch conflict resolution" --color "fbca04" --force || true
 
       - name: Update all open PRs
         env:
@@ -34,7 +44,7 @@ jobs:
           echo "🔍 Fetching open pull requests..."
           
           # Get all open PRs
-          prs=$(gh pr list --state open --json number,headRefName,title --jq '.[] | "\(.number)|\(.headRefName)|\(.title)"')
+          prs=$(gh pr list --state open --json number,headRefName,title,author --jq '.[] | "\(.number)|\(.headRefName)|\(.title)|\(.author.login)"')
           
           if [ -z "$prs" ]; then
             echo "ℹ️  No open pull requests found"
@@ -44,11 +54,16 @@ jobs:
           echo "📋 Found $(echo "$prs" | wc -l) open PR(s)"
           echo ""
           
+          # Track conflicts for summary
+          conflict_count=0
+          success_count=0
+          
           # Process each PR
-          echo "$prs" | while IFS='|' read -r pr_number branch_name pr_title; do
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "$prs" | while IFS='|' read -r pr_number branch_name pr_title pr_author; do
+            echo "────────────────────────────────────────"
             echo "🔄 PR #$pr_number: $pr_title"
             echo "   Branch: $branch_name"
+            echo "   Author: @$pr_author"
             
             # Get current HEAD SHA for safety check
             head_sha=$(gh pr view $pr_number --json headRefOid -q .headRefOid)
@@ -64,6 +79,7 @@ jobs:
             
             if [ $update_status -eq 0 ]; then
               echo "   ✅ Successfully queued for update"
+              success_count=$((success_count + 1))
               
               # Add a comment to the PR
               gh pr comment $pr_number --body "🤖 **Auto-update**: Branch updated with latest changes from \`main\`
@@ -72,37 +88,103 @@ jobs:
 <summary>Update details</summary>
 
 - Triggered by: push to \`main\`
-- Commit: ${{ github.sha }}
+- Commit: \`${{ github.sha }}\`
 - Workflow: [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
 </details>" || echo "   ⚠️  Could not add comment"
             else
               # Check if it's a conflict error
               if echo "$update_response" | grep -q "merge conflict\|422"; then
-                echo "   ⚠️  MERGE CONFLICT detected - manual resolution required"
+                echo "   ⚠️  MERGE CONFLICT detected"
+                conflict_count=$((conflict_count + 1))
                 
-                # Comment on PR about conflict
-                gh pr comment $pr_number --body "⚠️ **Auto-update failed**: This PR has merge conflicts with \`main\`
+                # Check if issue already exists for this PR
+                existing_issue=$(gh issue list \
+                  --label "merge-conflict" \
+                  --search "PR #$pr_number merge conflicts" \
+                  --state open \
+                  --json number \
+                  --jq '.[0].number' || echo "")
+                
+                if [ -n "$existing_issue" ] && [ "$existing_issue" != "null" ]; then
+                  echo "   ℹ️  Issue #$existing_issue already exists - updating"
+                  
+                  # Update existing issue
+                  gh issue comment $existing_issue --body "🔄 **Conflict still present** as of commit \`${head_sha:0:7}\`
 
-**Action required:**
+Attempted auto-update at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                else
+                  echo "   📝 Creating issue for batch resolution"
+                  
+                  # Create new issue
+                  issue_body="## 🔀 Merge Conflict Detected
+
+**Pull Request:** #$pr_number - $pr_title  
+**Branch:** \`$branch_name\`  
+**Author:** @$pr_author  
+**Conflicting with:** \`main\` @ \`${{ github.sha }}\`
+
+### 📊 Context
+
+This PR has merge conflicts with the latest \`main\` branch and requires manual resolution.
+
+### 🤖 Batch Resolution
+
+This issue is tagged for **batch conflict resolution**. A scheduled agent will:
+1. Analyze all open conflict issues
+2. Determine common patterns
+3. Create a single PR with resolutions for multiple conflicts
+4. Request human review before merging
+
+### 🛠️ Manual Resolution (if urgent)
+
 \`\`\`bash
+git fetch origin
 git checkout $branch_name
 git merge origin/main
-# Resolve conflicts
-git commit
+# Resolve conflicts in your editor
+git add .
+git commit -m 'chore: resolve merge conflicts with main'
 git push
 \`\`\`
 
-Or update via GitHub UI using the 'Update branch' button and resolve conflicts there.
+Or use GitHub's web editor: [Resolve conflicts in PR #$pr_number](${{ github.server_url }}/${{ github.repository }}/pull/$pr_number)
 
----
+### 📋 Conflict Details
+
 <details>
-<summary>Error details</summary>
+<summary>API Response</summary>
 
 \`\`\`
 $update_response
 \`\`\`
-</details>" || echo "   ⚠️  Could not add conflict comment"
+
+</details>
+
+---
+
+**Auto-generated** by workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+                  
+                  new_issue=$(gh issue create \
+                    --title "🔀 Merge conflict: PR #$pr_number ($pr_title)" \
+                    --body "$issue_body" \
+                    --label "merge-conflict,auto-update,needs-batch-resolve" \
+                    --assignee "$pr_author")
+                  
+                  echo "   ✅ Created issue: $new_issue"
+                  
+                  # Link issue in PR
+                  gh pr comment $pr_number --body "⚠️ **Auto-update failed**: Merge conflicts detected
+
+📋 **Issue created**: $new_issue
+
+This conflict will be resolved in a **batch PR** by an automated agent. You can also resolve it manually if urgent (see issue for instructions).
+
+---
+<sub>Triggered by: [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
+                fi
               else
                 echo "   ❌ Update failed: $update_response"
               fi
@@ -112,17 +194,24 @@ $update_response
             sleep 2  # Rate limiting protection
           done
           
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "────────────────────────────────────────"
           echo "✨ PR update process completed"
+          echo "📊 Summary: $success_count updated, $conflict_count conflicts"
 
       - name: Summary
         if: always()
         run: |
-          echo "### 📊 Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Auto-Update Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Details:**" >> $GITHUB_STEP_SUMMARY
           echo "- Trigger: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Repository: \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Base branch: \`main\`" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check the logs above for detailed status of each PR." >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Updated PRs are ready for review" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Conflicted PRs have issues created with label \`needs-batch-resolve\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 🤖 Batch resolution agent will process conflicts periodically" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View all conflict issues](https://github.com/${{ github.repository }}/issues?q=is:issue+is:open+label:needs-batch-resolve)" >> $GITHUB_STEP_SUMMARY
