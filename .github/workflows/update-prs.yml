@@ -215,3 +215,4 @@ This conflict will be resolved in a **batch PR** by an automated agent. You can 
           echo "- 🤖 Batch resolution agent will process conflicts periodically" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "[View all conflict issues](https://github.com/${{ github.repository }}/issues?q=is:issue+is:open+label:needs-batch-resolve)" >> $GITHUB_STEP_SUMMARY
+
