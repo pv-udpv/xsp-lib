@@ -3,6 +3,13 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      skip_pypi:
+        description: 'Skip PyPI publishing (for testing cascade)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -11,26 +18,132 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_pypi }}
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract version
+        id: extract
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION=$(grep '^version' pyproject.toml | cut -d'"' -f2)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip build twine
+          python-version: "3.12"
 
       - name: Build package
         run: |
-          python -m build
+          uv build
 
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
+          uv pip install --system twine
           twine upload dist/*
+
+  cascade-update:
+    runs-on: ubuntu-latest
+    needs: publish
+    if: always() && (success() || inputs.skip_pypi)
+    permissions:
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release info
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            CHANGELOG="${{ github.event.release.body }}"
+          else
+            VERSION=$(grep '^version' pyproject.toml | cut -d'"' -f2)
+            CHANGELOG="Manual trigger - no changelog"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Escape changelog for JSON
+          CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | jq -Rs .)
+          echo "changelog=$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
+          
+          echo "🔔 Triggering cascade for version: $VERSION"
+
+      - name: Trigger xsp-app update
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CASCADE_PAT }}
+          repository: pv-udpv/xsp-app
+          event-type: dependency-update
+          client-payload: |
+            {
+              "dependency": "xsp-lib",
+              "version": "${{ steps.release_info.outputs.version }}",
+              "changelog": ${{ steps.release_info.outputs.changelog }},
+              "triggeredBy": "${{ github.repository }}",
+              "releaseUrl": "${{ github.event.release.html_url }}",
+              "workflowUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+
+      - name: Trigger xsp-api update
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CASCADE_PAT }}
+          repository: pv-udpv/xsp-api
+          event-type: dependency-update
+          client-payload: |
+            {
+              "dependency": "xsp-lib",
+              "version": "${{ steps.release_info.outputs.version }}",
+              "triggeredBy": "${{ github.repository }}"
+            }
+
+      - name: Trigger xsp-worker update
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CASCADE_PAT }}
+          repository: pv-udpv/xsp-worker
+          event-type: dependency-update
+          client-payload: |
+            {
+              "dependency": "xsp-lib",
+              "version": "${{ steps.release_info.outputs.version }}",
+              "triggeredBy": "${{ github.repository }}"
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### 🔔 Cascade Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.release_info.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered repositories:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`pv-udpv/xsp-app\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`pv-udpv/xsp-api\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`pv-udpv/xsp-worker\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** If repositories don't exist yet, triggers will fail silently (continue-on-error)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check dependent repos for auto-created PRs" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review and merge update PRs" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor CI/CD pipelines" >> $GITHUB_STEP_SUMMARY
