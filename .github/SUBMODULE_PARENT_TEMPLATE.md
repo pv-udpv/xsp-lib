@@ -28,8 +28,8 @@ on:
     types: [submodule-update]
   workflow_dispatch:
     inputs:
-      submodule:
-        description: 'Submodule path (e.g., xsp-lib) or "all"'
+      target_repo:
+        description: 'Target repo URL (e.g., pv-udpv/xsp-lib) or "all"'
         required: false
         default: 'all'
       version:
@@ -43,8 +43,62 @@ permissions:
   issues: write
 
 jobs:
-  update-submodules:
+  detect-submodules:
     runs-on: ubuntu-latest
+    outputs:
+      submodules: ${{ steps.parse.outputs.submodules }}
+      has_submodules: ${{ steps.parse.outputs.has_submodules }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Parse .gitmodules
+        id: parse
+        run: |
+          echo "🔍 Detecting git submodules..."
+          
+          if [ ! -f .gitmodules ]; then
+            echo "has_submodules=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No .gitmodules found"
+            exit 0
+          fi
+          
+          # Parse .gitmodules into JSON array
+          SUBMODULES=$(git config -f .gitmodules --get-regexp '^submodule\..+\.(path|url)$' | \
+            awk '
+              BEGIN { print "[" }
+              /\.path/ { path = $2 }
+              /\.url/ { 
+                url = $2
+                gsub(/.*\//, "", url)  # Extract repo name from URL
+                gsub(/\.git$/, "", url)
+                if (path && url) {
+                  if (NR > 2) print ","
+                  printf "{\"path\":\"%s\",\"url\":\"%s\",\"repo\":\"%s\"}", path, $2, url
+                  path = ""
+                }
+              }
+              END { print "\n]" }
+            ')
+          
+          echo "submodules=$SUBMODULES" >> $GITHUB_OUTPUT
+          echo "has_submodules=true" >> $GITHUB_OUTPUT
+          
+          echo "📋 Found submodules:"
+          echo "$SUBMODULES" | jq -r '.[] | "  - \(.path) (\(.repo))"'
+
+  update-submodules:
+    needs: detect-submodules
+    if: needs.detect-submodules.outputs.has_submodules == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        submodule: ${{ fromJSON(needs.detect-submodules.outputs.submodules) }}
+      fail-fast: false
+      max-parallel: 3
     
     steps:
       - name: Checkout with submodules
@@ -59,43 +113,39 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Determine target submodules
-        id: targets
+      - name: Determine if should update this submodule
+        id: should_update
         run: |
+          SUBMODULE_URL="${{ matrix.submodule.url }}"
+          SUBMODULE_REPO="${{ matrix.submodule.repo }}"
+          
+          # Check if triggered by specific repo
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            # Triggered by xsp-lib release
-            SUBMODULE="${{ github.event.client_payload.submodule_path }}"
-            VERSION="${{ github.event.client_payload.version }}"
-            TRIGGER="release"
-          elif [ -n "${{ inputs.submodule }}" ]; then
-            # Manual trigger
-            SUBMODULE="${{ inputs.submodule }}"
-            VERSION="${{ inputs.version }}"
-            TRIGGER="manual"
-          else
-            # Scheduled
-            SUBMODULE="all"
-            VERSION=""
-            TRIGGER="scheduled"
+            TRIGGER_REPO="${{ github.event.client_payload.triggeredBy }}"
+            if [[ ! "$SUBMODULE_URL" =~ "$TRIGGER_REPO" ]] && [ "$TRIGGER_REPO" != "all" ]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "⏭️  Skipping $SUBMODULE_REPO - not triggered by this repo"
+              exit 0
+            fi
           fi
           
-          echo "submodule=$SUBMODULE" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "trigger=$TRIGGER" >> $GITHUB_OUTPUT
+          # Check manual input filter
+          if [ -n "${{ inputs.target_repo }}" ] && [ "${{ inputs.target_repo }}" != "all" ]; then
+            if [[ ! "$SUBMODULE_URL" =~ "${{ inputs.target_repo }}" ]]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "⏭️  Skipping $SUBMODULE_REPO - not matching filter"
+              exit 0
+            fi
+          fi
           
-          echo "🎯 Target: $SUBMODULE (version: ${VERSION:-latest})"
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "✅ Will update $SUBMODULE_REPO"
 
-      - name: Update xsp-lib submodule
-        id: update_xsp
-        if: steps.targets.outputs.submodule == 'xsp-lib' || steps.targets.outputs.submodule == 'all'
+      - name: Update submodule
+        if: steps.should_update.outputs.skip == 'false'
+        id: update
         run: |
-          SUBMODULE_PATH="xsp-lib"  # Adjust if different
-          
-          if [ ! -d "$SUBMODULE_PATH" ]; then
-            echo "⚠️  Submodule $SUBMODULE_PATH not found"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          SUBMODULE_PATH="${{ matrix.submodule.path }}"
           
           cd "$SUBMODULE_PATH"
           
@@ -103,14 +153,16 @@ jobs:
           CURRENT_SHA=$(git rev-parse HEAD)
           CURRENT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "${CURRENT_SHA:0:7}")
           
-          echo "📍 Current: $CURRENT_TAG ($CURRENT_SHA)"
+          echo "📌 Current: $CURRENT_TAG ($CURRENT_SHA)"
           
           # Fetch latest
           git fetch origin --tags --prune
           
           # Определить целевую версию
-          if [ -n "${{ steps.targets.outputs.version }}" ]; then
-            TARGET_REF="${{ steps.targets.outputs.version }}"
+          if [ -n "${{ github.event.client_payload.version }}" ]; then
+            TARGET_REF="${{ github.event.client_payload.version }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            TARGET_REF="${{ inputs.version }}"
           else
             # Latest stable tag (vX.Y.Z format)
             TARGET_REF=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -n1)
@@ -142,6 +194,7 @@ jobs:
             echo "current_sha=${CURRENT_SHA:0:7}" >> $GITHUB_OUTPUT
             echo "new_sha=${NEW_SHA:0:7}" >> $GITHUB_OUTPUT
             echo "submodule_path=$SUBMODULE_PATH" >> $GITHUB_OUTPUT
+            echo "submodule_repo=${{ matrix.submodule.repo }}" >> $GITHUB_OUTPUT
             
             # Get changelog between commits
             CHANGELOG=$(cd "$SUBMODULE_PATH" && git log --oneline "$CURRENT_SHA..$NEW_SHA" | head -n 20)
@@ -153,19 +206,19 @@ jobs:
           fi
 
       - name: Install uv
-        if: steps.update_xsp.outputs.has_changes == 'true'
+        if: steps.update.outputs.has_changes == 'true'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Set up Python
-        if: steps.update_xsp.outputs.has_changes == 'true'
+        if: steps.update.outputs.has_changes == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Run integration tests
-        if: steps.update_xsp.outputs.has_changes == 'true'
+        if: steps.update.outputs.has_changes == 'true'
         id: tests
         continue-on-error: true
         run: |
@@ -184,74 +237,70 @@ jobs:
           fi
 
       - name: Create Pull Request
-        if: steps.update_xsp.outputs.has_changes == 'true'
+        if: steps.update.outputs.has_changes == 'true'
         id: create_pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
-            chore(deps): update xsp-lib submodule ${{ steps.update_xsp.outputs.current_version }} → ${{ steps.update_xsp.outputs.new_version }}
+            chore(deps): update ${{ steps.update.outputs.submodule_repo }} submodule ${{ steps.update.outputs.current_version }} → ${{ steps.update.outputs.new_version }}
             
-            Submodule: ${{ steps.update_xsp.outputs.submodule_path }}
-            Commit: ${{ steps.update_xsp.outputs.current_sha }} → ${{ steps.update_xsp.outputs.new_sha }}
-            Trigger: ${{ steps.targets.outputs.trigger }}
-          branch: auto/update-xsp-lib-${{ steps.update_xsp.outputs.new_sha }}
+            Submodule: ${{ steps.update.outputs.submodule_path }}
+            Commit: ${{ steps.update.outputs.current_sha }} → ${{ steps.update.outputs.new_sha }}
+          branch: auto/update-${{ steps.update.outputs.submodule_repo }}-${{ steps.update.outputs.new_sha }}
           delete-branch: true
-          title: "⬆️ Update xsp-lib submodule to ${{ steps.update_xsp.outputs.new_version }}"
+          title: "⬆️ Update ${{ steps.update.outputs.submodule_repo }} to ${{ steps.update.outputs.new_version }}"
           body: |
             ## 📦 Submodule Update
             
-            **Submodule:** `${{ steps.update_xsp.outputs.submodule_path }}`  
-            **Trigger:** ${{ steps.targets.outputs.trigger }}  
+            **Submodule:** `${{ steps.update.outputs.submodule_path }}`  
+            **Repository:** `${{ steps.update.outputs.submodule_repo }}`  
             
             | | Current | New |
             |---|---|---|
-            | **Version** | `${{ steps.update_xsp.outputs.current_version }}` | `${{ steps.update_xsp.outputs.new_version }}` |
-            | **Commit** | `${{ steps.update_xsp.outputs.current_sha }}` | `${{ steps.update_xsp.outputs.new_sha }}` |
+            | **Version** | `${{ steps.update.outputs.current_version }}` | `${{ steps.update.outputs.new_version }}` |
+            | **Commit** | `${{ steps.update.outputs.current_sha }}` | `${{ steps.update.outputs.new_sha }}` |
             | **Tests** | - | ${{ steps.tests.outputs.status == 'passing' && '✅ Passing' || '⚠️ Failing' }} |
             
-            ### 📝 Changes in xsp-lib
+            ### 📝 Changes
             
             <details>
-            <summary>Changelog (${{ steps.update_xsp.outputs.current_sha }}..${{ steps.update_xsp.outputs.new_sha }})</summary>
+            <summary>Changelog (${{ steps.update.outputs.current_sha }}..${{ steps.update.outputs.new_sha }})</summary>
             
             ```
-            ${{ steps.update_xsp.outputs.changelog }}
+            ${{ steps.update.outputs.changelog }}
             ```
             
             </details>
             
             ### 🔗 Links
             
-            - [Compare commits](https://github.com/pv-udpv/xsp-lib/compare/${{ steps.update_xsp.outputs.current_sha }}...${{ steps.update_xsp.outputs.new_sha }})
-            - [xsp-lib releases](https://github.com/pv-udpv/xsp-lib/releases)
+            - [Compare commits](https://github.com/${{ github.event.client_payload.triggeredBy || 'pv-udpv/xsp-lib' }}/compare/${{ steps.update.outputs.current_sha }}...${{ steps.update.outputs.new_sha }})
             ${{ github.event.client_payload.releaseUrl && format('- [Release notes]({0})', github.event.client_payload.releaseUrl) || '' }}
             
             ### ✅ Checklist
             
             - [ ] Review submodule changes
             - [ ] Verify integration tests (${{ steps.tests.outputs.status }})
-            - [ ] Check for breaking changes in xsp-lib API
+            - [ ] Check for breaking changes
             - [ ] Update parent code if needed
             - [ ] Test critical user paths
             
             ---
             
-            <sub>🤖 Auto-generated by submodule update workflow ([run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}))</sub>
+            <sub>🤖 Auto-generated ([run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}))</sub>
           labels: |
             dependencies
             submodule
-            xsp-lib
+            ${{ steps.update.outputs.submodule_repo }}
             ${{ steps.tests.outputs.status == 'passing' && 'tests-passing' || 'tests-failing' }}
-            ${{ steps.targets.outputs.trigger }}
           assignees: ${{ github.repository_owner }}
 
       - name: Handle test failures
-        if: steps.update_xsp.outputs.has_changes == 'true' && steps.tests.outputs.status == 'failing'
+        if: steps.update.outputs.has_changes == 'true' && steps.tests.outputs.status == 'failing'
         uses: actions/github-script@v7
         with:
           script: |
-            // Добавить комментарий в PR о необходимости review
             const prNumber = '${{ steps.create_pr.outputs.pull-request-number }}';
             if (prNumber) {
               await github.rest.issues.createComment({
@@ -263,151 +312,116 @@ jobs:
                   `Please review the changes and fix integration issues before merging.\n\n` +
                   `**Actions:**\n` +
                   `1. Check [test logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n` +
-                  `2. Review [xsp-lib changes](https://github.com/pv-udpv/xsp-lib/compare/${{ steps.update_xsp.outputs.current_sha }}...${{ steps.update_xsp.outputs.new_sha }})\n` +
-                  `3. Update parent code to match new xsp-lib API\n` +
+                  `2. Review [changes](https://github.com/${{ github.event.client_payload.triggeredBy || 'pv-udpv/xsp-lib' }}/compare/${{ steps.update.outputs.current_sha }}...${{ steps.update.outputs.new_sha }})\n` +
+                  `3. Update parent code to match new API\n` +
                   `4. Re-run tests locally`
               });
             }
 
-      - name: Summary
-        if: always()
+  summary:
+    needs: [detect-submodules, update-submodules]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate summary
         run: |
           echo "### 📦 Submodule Update Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Trigger:** ${{ steps.targets.outputs.trigger }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Target:** ${{ steps.targets.outputs.submodule }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ steps.update_xsp.outputs.has_changes }}" == "true" ]; then
-            echo "**Changes detected:**" >> $GITHUB_STEP_SUMMARY
-            echo "- xsp-lib: \`${{ steps.update_xsp.outputs.current_version }}\` → \`${{ steps.update_xsp.outputs.new_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Tests: ${{ steps.tests.outputs.status }}" >> $GITHUB_STEP_SUMMARY
-            echo "- PR: #${{ steps.create_pr.outputs.pull-request-number }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-submodules.outputs.has_submodules }}" == "false" ]; then
+            echo "⚠️ No .gitmodules found in this repository" >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ No updates available - already at latest version" >> $GITHUB_STEP_SUMMARY
+            echo "**Detected submodules:**" >> $GITHUB_STEP_SUMMARY
+            echo '${{ needs.detect-submodules.outputs.submodules }}' | jq -r '.[] | "- `\(.path)` (\(.repo))"' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Update status:** Check individual job logs above" >> $GITHUB_STEP_SUMMARY
           fi
 ```
 
-## 🔗 Trigger из xsp-lib при релизе
+## 🎯 Фишки auto-detection
 
-В `xsp-lib/.github/workflows/release.yml` уже добавлен trigger для обычных репо.  
-Добавь также для **submodule-родителей**:
-
-```yaml
-- name: Trigger zbst-tech submodule update
-  continue-on-error: true
-  uses: peter-evans/repository-dispatch@v3
-  with:
-    token: ${{ secrets.CASCADE_PAT }}
-    repository: pv-udpv/zbst-tech  # или другой родительский репо
-    event-type: submodule-update
-    client-payload: |
-      {
-        "submodule_path": "xsp-lib",
-        "version": "${{ steps.release_info.outputs.version }}",
-        "changelog": ${{ steps.release_info.outputs.changelog }},
-        "triggeredBy": "${{ github.repository }}",
-        "releaseUrl": "${{ github.event.release.html_url }}"
-      }
+### 1. **Парсит .gitmodules автоматически**
+```bash
+git config -f .gitmodules --get-regexp '^submodule\..+\.(path|url)$'
+# Выход:
+# submodule.xsp-lib.path xsp-lib
+# submodule.xsp-lib.url https://github.com/pv-udpv/xsp-lib.git
 ```
 
-## 🎯 Workflow диаграмма
+### 2. **Matrix strategy для параллельных обновлений**
+```yaml
+strategy:
+  matrix:
+    submodule: ${{ fromJSON(needs.detect-submodules.outputs.submodules) }}
+  max-parallel: 3  # До 3 submodules одновременно
+```
 
-```mermaid
-graph TD
-    A[xsp-lib Release] -->|repository_dispatch| B[zbst-tech]
-    C[Cron: daily 03:00] --> B
-    D[Manual trigger] --> B
-    
-    B --> E[Fetch submodule updates]
-    E --> F{Version changed?}
-    
-    F -->|No| G[Skip - already updated]
-    F -->|Yes| H[Checkout new version]
-    
-    H --> I[Run integration tests]
-    I --> J{Tests pass?}
-    
-    J -->|Yes| K[Create PR: tests-passing]
-    J -->|No| L[Create PR: tests-failing]
-    
-    L --> M[Add warning comment]
-    K --> N[Auto-merge if configured]
-    M --> O[Manual review required]
+### 3. **Умная фильтрация**
+```yaml
+# Обновить только xsp-lib при релизе
+if [[ "$SUBMODULE_URL" =~ "pv-udpv/xsp-lib" ]]; then
+  update_it
+fi
 ```
 
 ## 🚀 Setup для zbst-tech
 
 ```bash
-# 1. В zbst-tech создать workflow
-mkdir -p .github/workflows
+# 1. Скопировать workflow
+cd /path/to/zbst-tech
 curl -o .github/workflows/update-submodules.yml \
   https://raw.githubusercontent.com/pv-udpv/xsp-lib/main/.github/SUBMODULE_PARENT_TEMPLATE.md
 
-# Или скопировать вручную workflow из этого файла
+# 2. ВСЁ! Никаких правок не нужно - auto-detect сам найдёт все submodules
 
-# 2. Настроить CASCADE_PAT в xsp-lib (если еще не настроен)
-gh secret set CASCADE_PAT --repo pv-udpv/xsp-lib
+# 3. Test
+gh workflow run update-submodules.yml --repo pv-udpv/zbst-tech
 
-# 3. В xsp-lib/.github/workflows/release.yml добавить trigger для zbst-tech
-# (см. секцию выше)
+# 4. Проверить что нашло
+gh run list --workflow=update-submodules.yml --repo pv-udpv/zbst-tech
+```
 
-# 4. Test workflow
+## 📋 Примеры использования
+
+### Обновить все submodules
+```bash
+gh workflow run update-submodules.yml
+```
+
+### Обновить только xsp-lib
+```bash
+gh workflow run update-submodules.yml -f target_repo=pv-udpv/xsp-lib
+```
+
+### Обновить до конкретной версии
+```bash
 gh workflow run update-submodules.yml \
-  --repo pv-udpv/zbst-tech \
-  -f submodule=xsp-lib
+  -f target_repo=pv-udpv/xsp-lib \
+  -f version=v1.2.0
 ```
 
-## 📋 Особенности для submodules
+## 🔧 Несколько submodules
 
-### vs обычные dependencies:
-
-| Аспект | Submodule | Dependency (pip) |
-|--------|-----------|------------------|
-| **Update** | `git checkout tag` | `uv pip install` |
-| **Lock** | Commit SHA в родителе | requirements.txt |
-| **Tests** | Integration tests critical | Unit tests обычно достаточно |
-| **Rollback** | `git reset submodule` | `uv pip install old-version` |
-| **CI overhead** | Выше (recursive checkout) | Ниже |
-
-### Рекомендации:
-
-1. **Always run integration tests** - submodule changes более критичны
-2. **Pin to tags, not commits** - легче track версии
-3. **Don't auto-merge** - даже если тесты зелёные, review обязателен
-4. **Monitor main branch** - daily cron поймёт unreleased changes
-
-## 🔧 Advanced: Несколько submodules
-
-Если в zbst-tech несколько submodules (например, `xsp-lib`, `utils-lib`):
-
-```yaml
-# В update-submodules.yml добавить matrix strategy:
-jobs:
-  update-submodules:
-    strategy:
-      matrix:
-        submodule:
-          - path: xsp-lib
-            repo: pv-udpv/xsp-lib
-          - path: utils-lib
-            repo: pv-udpv/utils-lib
-      fail-fast: false
-    
-    steps:
-      # ... используй ${{ matrix.submodule.path }}
+Если в zbst-tech есть:
+```
+.gitmodules:
+  [submodule "xsp-lib"]
+    path = libs/xsp-lib
+    url = https://github.com/pv-udpv/xsp-lib.git
+  [submodule "utils-lib"]
+    path = libs/utils
+    url = https://github.com/pv-udpv/utils-lib.git
 ```
 
-## 📊 Сравнение стратегий для zbst-tech
-
-| Стратегия | Pros | Cons | Рекомендация |
-|-----------|------|------|-------------|
-| **Submodule** | Точный контроль версии, локальная разработка | Сложнее CI, требует recursive checkout | ✅ Если разрабатываешь xsp-lib и zbst-tech параллельно |
-| **Pip dependency** | Проще CI, стандартный Python workflow | Нет локальной разработки, зависишь от PyPI | ✅ Если xsp-lib стабилен, редкие изменения |
-| **Monorepo** | Атомарные изменения, один CI | Сложнее разделение concerns | ⚠️ Если проекты очень связаны |
+Workflow **автоматически**:
+1. Найдёт оба submodule
+2. Запустит параллельно (max-parallel: 3)
+3. Создаст отдельные PR для каждого
+4. При релизе xsp-lib обновит только его (фильтрация по URL)
 
 ---
 
-**Статус:** Ready for production ✅  
-**Tested with:** Git submodules, GitHub Actions, UV  
+**Статус:** Production ready ✅  
+**Zero configuration** - просто скопируй workflow  
 **Last updated:** 2025-12-14
