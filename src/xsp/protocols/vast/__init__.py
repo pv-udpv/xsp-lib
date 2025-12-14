@@ -1,17 +1,12 @@
 """VAST protocol implementation."""
 
-from xsp.protocols.vast.chain_resolver import (
-    ChainResolver,
-    ChainResolutionError,
-    MaxDepthExceededError,
-)
+from xsp.protocols.vast.chain_resolver import VastChainResolver
 from xsp.protocols.vast.handler import VastProtocolHandler
 from xsp.protocols.vast.chain import (
     ResolutionStrategy,
     SelectionStrategy,
     VastChainConfig,
 )
-from xsp.protocols.vast.chain_resolver import VastChainResolver
 from xsp.protocols.vast.config_loader import VastChainConfigLoader
 from xsp.protocols.vast.macros import MacroSubstitutor
 from xsp.protocols.vast.types import (
@@ -27,10 +22,7 @@ from xsp.protocols.vast.cache import VastCacheLayer
 from xsp.protocols.vast.metrics import VastMetrics, VastMetricLabels
 
 __all__ = [
-    "ChainResolver",
-    "ChainResolutionError",
     "MacroSubstitutor",
-    "MaxDepthExceededError",
     "MediaType",
     "VastProtocolHandler",
     "ResolutionStrategy",
