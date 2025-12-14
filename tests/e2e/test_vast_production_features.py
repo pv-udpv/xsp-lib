@@ -247,8 +247,8 @@ async def test_wrapper_chain_with_metrics(
     # Measure resolution time
     start_time = time.time()
 
-    # Note: This is a simplified test - actual resolution would follow VASTAdTagURI
-    # Here we just verify the metrics recording works
+    # Note: This is a simplified test - actual resolution would use VastChainResolver
+    # to follow VASTAdTagURI. Here we just verify the metrics recording works
     chain_depth = 2  # Simulating 1 wrapper + 1 inline
     resolution_duration = time.time() - start_time
 
