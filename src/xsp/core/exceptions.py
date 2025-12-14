@@ -37,6 +37,14 @@ class ValidationError(XspError):
     """Schema validation failed."""
 
 
+class FrequencyCapExceeded(XspError):  # noqa: N818
+    """Frequency cap limit exceeded."""
+
+
+class BudgetExceeded(XspError):  # noqa: N818
+    """Budget limit exceeded."""
+
+
 class VastError(UpstreamError):
     """VAST protocol error."""
 

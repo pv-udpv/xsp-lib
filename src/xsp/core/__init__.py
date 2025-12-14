@@ -1,9 +1,11 @@
 """Core abstractions."""
 
 from xsp.core.base import BaseUpstream
-from xsp.core.config import UpstreamConfig
+from xsp.core.dialer import Dialer, HttpDialer
 from xsp.core.exceptions import (
+    BudgetExceeded,
     DecodeError,
+    FrequencyCapExceeded,
     TransportError,
     UpstreamError,
     UpstreamTimeout,
@@ -19,8 +21,11 @@ from xsp.core.upstream import Upstream
 
 __all__ = [
     "BaseUpstream",
+    "BudgetExceeded",
     "Context",
     "DecodeError",
+    "Dialer",
+    "FrequencyCapExceeded",
     "Headers",
     "InMemoryStateBackend",
     "Metadata",
@@ -29,14 +34,15 @@ __all__ = [
     "RedisStateBackend",
     "StateBackend",
     "SessionContext",
+    "StateBackend",
     "Transport",
     "TransportError",
     "TransportType",
     "Upstream",
-    "UpstreamConfig",
     "UpstreamError",
     "UpstreamSession",
     "UpstreamTimeout",
     "ValidationError",
+    "VastSession",
     "XspError",
 ]
