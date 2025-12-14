@@ -1,0 +1,458 @@
+name: Rebase PR Branch
+
+# Reusable workflow for rebasing PR branches with merge conflict detection
+# Can be called from other workflows or triggered manually
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        description: 'Base branch to rebase onto (e.g., main)'
+        required: false
+        type: string
+        default: 'main'
+      pr_branch:
+        description: 'PR branch to rebase'
+        required: true
+        type: string
+      auto_merge_strategy:
+        description: 'Strategy for auto-merging conflicts (ours, theirs, none)'
+        required: false
+        type: string
+        default: 'none'
+      use_staging_branch:
+        description: 'Use a staging branch for safe rebasing (rebase/pr-branch-name)'
+        required: false
+        type: boolean
+        default: false
+      auto_apply_staging:
+        description: 'Automatically apply staging branch to PR branch if rebase succeeds'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      has_conflicts:
+        description: 'Whether merge conflicts were detected'
+        value: ${{ jobs.rebase.outputs.has_conflicts }}
+      conflict_files:
+        description: 'List of files with conflicts'
+        value: ${{ jobs.rebase.outputs.conflict_files }}
+      rebase_status:
+        description: 'Status of rebase operation (success, conflicts, failed)'
+        value: ${{ jobs.rebase.outputs.rebase_status }}
+      staging_branch:
+        description: 'Name of staging branch (if used)'
+        value: ${{ jobs.rebase.outputs.staging_branch }}
+  
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch to rebase onto (e.g., main)'
+        required: false
+        type: string
+        default: 'main'
+      pr_branch:
+        description: 'PR branch to rebase'
+        required: true
+        type: string
+      auto_merge_strategy:
+        description: 'Strategy for auto-merging conflicts (ours, theirs, none)'
+        required: false
+        type: choice
+        default: 'none'
+        options:
+          - none
+          - ours
+          - theirs
+      use_staging_branch:
+        description: 'Use a staging branch for safe rebasing'
+        required: false
+        type: boolean
+        default: false
+      auto_apply_staging:
+        description: 'Auto-apply staging branch to PR branch if rebase succeeds'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    outputs:
+      has_conflicts: ${{ steps.check_conflicts.outputs.has_conflicts }}
+      conflict_files: ${{ steps.check_conflicts.outputs.conflict_files }}
+      rebase_status: ${{ steps.rebase.outputs.status }}
+      staging_branch: ${{ steps.setup_branch.outputs.staging_branch }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.pr_branch }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ inputs.base_branch }}
+          echo "Base branch: ${{ inputs.base_branch }}"
+          echo "PR branch: ${{ inputs.pr_branch }}"
+      
+      - name: Setup staging branch
+        id: setup_branch
+        run: |
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            # Sanitize branch name by replacing slashes with dashes
+            sanitized_branch=$(echo "${{ inputs.pr_branch }}" | sed 's/\//-/g')
+            staging_branch="rebase/${sanitized_branch}"
+            echo "staging_branch=${staging_branch}" >> $GITHUB_OUTPUT
+            echo "working_branch=${staging_branch}" >> $GITHUB_OUTPUT
+            
+            echo "::group::Creating staging branch"
+            echo "🔀 Creating staging branch: ${staging_branch}"
+            echo "   (from PR branch: ${{ inputs.pr_branch }})"
+            
+            # Create staging branch from current PR branch
+            git checkout -b "${staging_branch}"
+            
+            echo "✅ Staging branch created: ${staging_branch}"
+            echo "::endgroup::"
+          else
+            echo "staging_branch=" >> $GITHUB_OUTPUT
+            echo "working_branch=${{ inputs.pr_branch }}" >> $GITHUB_OUTPUT
+            echo "ℹ️  Using PR branch directly (no staging branch)"
+          fi
+      
+      - name: Check for merge conflicts
+        id: check_conflicts
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "::group::Checking for merge conflicts"
+          
+          # Try a test merge without committing
+          git merge --no-commit --no-ff origin/${{ inputs.base_branch }} 2>&1 | tee merge_output.txt
+          merge_exit_code=$?
+          
+          if [ $merge_exit_code -eq 0 ]; then
+            # No conflicts - abort the test merge
+            git merge --abort 2>/dev/null || true
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            echo "conflict_files=" >> $GITHUB_OUTPUT
+            echo "✅ No merge conflicts detected"
+            echo "::endgroup::"
+          else
+            # Conflicts detected - get list of conflicted files
+            conflict_files=$(git diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//')
+            conflict_count=$(git diff --name-only --diff-filter=U | wc -l)
+            
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+            echo "conflict_files=${conflict_files}" >> $GITHUB_OUTPUT
+            
+            echo "⚠️  Merge conflicts detected in ${conflict_count} file(s):"
+            git diff --name-only --diff-filter=U | sed 's/^/  - /'
+            
+            # Abort the test merge
+            git merge --abort 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+      
+      - name: Attempt rebase with conflict resolution
+        id: rebase
+        if: always()
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "::group::Rebasing branch"
+          
+          if [ "${{ steps.check_conflicts.outputs.has_conflicts }}" = "false" ]; then
+            echo "No conflicts detected, proceeding with rebase..."
+            
+            # Perform actual rebase
+            git rebase origin/${{ inputs.base_branch }}
+            rebase_exit_code=$?
+            
+            if [ $rebase_exit_code -eq 0 ]; then
+              echo "status=success" >> $GITHUB_OUTPUT
+              echo "✅ Rebase completed successfully"
+              echo "::endgroup::"
+              exit 0
+            else
+              git rebase --abort 2>/dev/null || true
+              echo "status=failed" >> $GITHUB_OUTPUT
+              echo "❌ Rebase failed unexpectedly"
+              echo "::endgroup::"
+              exit 1
+            fi
+          else
+            echo "Conflicts detected. Auto-merge strategy: ${{ inputs.auto_merge_strategy }}"
+            
+            if [ "${{ inputs.auto_merge_strategy }}" = "none" ]; then
+              echo "status=conflicts" >> $GITHUB_OUTPUT
+              echo "⚠️  Manual conflict resolution required"
+              echo "::endgroup::"
+              exit 0
+            else
+              # Attempt automatic conflict resolution
+              echo "Attempting automatic conflict resolution..."
+              git rebase origin/${{ inputs.base_branch }}
+              rebase_exit_code=$?
+              
+              if [ $rebase_exit_code -ne 0 ]; then
+                # Apply merge strategy
+                conflict_files="${{ steps.check_conflicts.outputs.conflict_files }}"
+                
+                # Check if conflict_files is not empty
+                if [ -n "$conflict_files" ]; then
+                  IFS=',' read -ra files <<< "$conflict_files"
+                  
+                  # Filter out empty strings and process files
+                  for file in "${files[@]}"; do
+                    # Skip empty entries
+                    if [ -z "$file" ]; then
+                      continue
+                    fi
+                    
+                    if [ -f "$file" ]; then
+                      if [ "${{ inputs.auto_merge_strategy }}" = "ours" ]; then
+                        echo "  Resolving $file using 'ours' strategy"
+                        git checkout --ours "$file"
+                      elif [ "${{ inputs.auto_merge_strategy }}" = "theirs" ]; then
+                        echo "  Resolving $file using 'theirs' strategy"
+                        git checkout --theirs "$file"
+                      fi
+                      git add "$file"
+                    else
+                      echo "  Warning: Conflict file $file not found"
+                    fi
+                  done
+                else
+                  echo "  Warning: No conflict files list available"
+                fi
+                
+                git rebase --continue
+                rebase_final_code=$?
+                
+                if [ $rebase_final_code -eq 0 ]; then
+                  echo "status=success" >> $GITHUB_OUTPUT
+                  echo "✅ Rebase completed with automatic conflict resolution"
+                  echo "::endgroup::"
+                  exit 0
+                else
+                  git rebase --abort 2>/dev/null || true
+                  echo "status=conflicts" >> $GITHUB_OUTPUT
+                  echo "⚠️  Automatic conflict resolution failed"
+                  echo "::endgroup::"
+                  exit 0
+                fi
+              else
+                echo "status=success" >> $GITHUB_OUTPUT
+                echo "✅ Rebase completed successfully"
+                echo "::endgroup::"
+                exit 0
+              fi
+            fi
+          fi
+      
+      - name: Push rebased branch
+        if: steps.rebase.outputs.status == 'success'
+        run: |
+          echo "::group::Pushing rebased branch"
+          
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+            
+            # Push staging branch
+            echo "📤 Pushing staging branch: ${staging_branch}"
+            git push --force-with-lease origin "${staging_branch}"
+            echo "✅ Staging branch pushed: ${staging_branch}"
+            
+            if [ "${{ inputs.auto_apply_staging }}" = "true" ]; then
+              echo ""
+              echo "🔄 Auto-applying staging branch to PR branch..."
+              
+              # Push staging branch to PR branch
+              git push --force-with-lease origin "${staging_branch}:${{ inputs.pr_branch }}"
+              echo "✅ Staging branch applied to PR branch: ${{ inputs.pr_branch }}"
+              
+              # Keep staging branch for reference
+              echo "ℹ️  Staging branch ${staging_branch} kept for reference"
+              echo "   Delete manually if needed: git push origin --delete ${staging_branch}"
+            else
+              echo ""
+              echo "ℹ️  Staging branch created but not auto-applied to PR branch"
+              echo "To apply manually, run:"
+              echo "  git fetch origin ${staging_branch}"
+              echo "  git checkout ${{ inputs.pr_branch }}"
+              echo "  git reset --hard origin/${staging_branch}"
+              echo "  git push --force-with-lease origin ${{ inputs.pr_branch }}"
+              echo ""
+              echo "To delete staging branch after applying:"
+              echo "  git push origin --delete ${staging_branch}"
+            fi
+          else
+            # Direct push to PR branch
+            git push --force-with-lease origin ${{ inputs.pr_branch }}
+            echo "✅ Rebased branch pushed successfully to ${{ inputs.pr_branch }}"
+          fi
+          
+          echo "::endgroup::"
+      
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Rebase Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Base branch:** \`${{ inputs.base_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**PR branch:** \`${{ inputs.pr_branch }}\`" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+            staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+            echo "**Staging branch:** \`${staging_branch}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Auto-apply:** \`${{ inputs.auto_apply_staging }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "**Status:** \`${{ steps.rebase.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_conflicts.outputs.has_conflicts }}" = "true" ]; then
+            echo "### ⚠️ Merge Conflicts Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Conflicts found in the following files:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.check_conflicts.outputs.conflict_files }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ steps.rebase.outputs.status }}" = "success" ]; then
+              echo "✅ Conflicts were automatically resolved using the \`${{ inputs.auto_merge_strategy }}\` strategy." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### Manual Resolution Required" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "To resolve conflicts manually:" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "git fetch origin ${{ inputs.base_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "git rebase origin/${{ inputs.base_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "# Resolve conflicts in your editor" >> $GITHUB_STEP_SUMMARY
+              echo "git add <resolved-files>" >> $GITHUB_STEP_SUMMARY
+              echo "git rebase --continue" >> $GITHUB_STEP_SUMMARY
+              echo "git push --force-with-lease origin ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ No merge conflicts detected." >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ steps.rebase.outputs.status }}" = "success" ]; then
+              if [ "${{ inputs.use_staging_branch }}" = "true" ]; then
+                staging_branch="${{ steps.setup_branch.outputs.staging_branch }}"
+                echo "✅ Branch rebased successfully to staging branch: \`${staging_branch}\`" >> $GITHUB_STEP_SUMMARY
+                
+                if [ "${{ inputs.auto_apply_staging }}" = "true" ]; then
+                  echo "✅ Staging branch automatically applied to PR branch." >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📋 Apply Staging Branch" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "Review the staging branch and apply it manually:" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+                  echo "git fetch origin ${staging_branch}" >> $GITHUB_STEP_SUMMARY
+                  echo "git checkout ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+                  echo "git reset --hard origin/${staging_branch}" >> $GITHUB_STEP_SUMMARY
+                  echo "git push --force-with-lease origin ${{ inputs.pr_branch }}" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                fi
+              else
+                echo "✅ Branch rebased successfully." >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          fi
+      
+      - name: Comment on PR (if applicable)
+        if: always() && github.event_name != 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.rebase.outputs.status }}';
+            const hasConflicts = '${{ steps.check_conflicts.outputs.has_conflicts }}' === 'true';
+            const conflictFiles = '${{ steps.check_conflicts.outputs.conflict_files }}'.split(',').filter(f => f);
+            const useStaging = '${{ inputs.use_staging_branch }}' === 'true';
+            const stagingBranch = '${{ steps.setup_branch.outputs.staging_branch }}';
+            const autoApply = '${{ inputs.auto_apply_staging }}' === 'true';
+            
+            let body = '## 🔄 Rebase Status\n\n';
+            
+            if (status === 'success') {
+              body += '✅ **Branch rebased successfully!**\n\n';
+              
+              if (useStaging) {
+                body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\` in staging branch \`${stagingBranch}\`.\n\n`;
+                
+                if (autoApply) {
+                  body += '✅ **Staging branch automatically applied to PR branch.**\n\n';
+                } else {
+                  body += '### 📋 Apply Staging Branch\n\n';
+                  body += `Review the staging branch [\`${stagingBranch}\`](../../tree/${stagingBranch}) and apply it manually:\n\n`;
+                  body += '```bash\n';
+                  body += `git fetch origin ${stagingBranch}\n`;
+                  body += `git checkout ${{ inputs.pr_branch }}\n`;
+                  body += `git reset --hard origin/${stagingBranch}\n`;
+                  body += `git push --force-with-lease origin ${{ inputs.pr_branch }}\n`;
+                  body += '```\n\n';
+                  body += 'Or via GitHub CLI:\n';
+                  body += '```bash\n';
+                  body += `gh pr checkout ${{ inputs.pr_branch }}\n`;
+                  body += `git reset --hard origin/${stagingBranch}\n`;
+                  body += `git push --force-with-lease\n`;
+                  body += '```\n';
+                }
+              } else {
+                body += `The \`${{ inputs.pr_branch }}\` branch has been rebased onto \`${{ inputs.base_branch }}\`.\n`;
+              }
+              
+              if (hasConflicts) {
+                body += `\n⚠️ Conflicts were automatically resolved using the \`${{ inputs.auto_merge_strategy }}\` strategy.\n`;
+              }
+            } else if (status === 'conflicts') {
+              body += '⚠️ **Manual conflict resolution required**\n\n';
+              body += `Merge conflicts detected in ${conflictFiles.length} file(s):\n\n`;
+              conflictFiles.forEach(file => {
+                body += `- \`${file}\`\n`;
+              });
+              body += '\n### How to resolve:\n\n';
+              body += '```bash\n';
+              body += `git fetch origin ${{ inputs.base_branch }}\n`;
+              body += `git rebase origin/${{ inputs.base_branch }}\n`;
+              body += '# Resolve conflicts in your editor\n';
+              body += 'git add <resolved-files>\n';
+              body += 'git rebase --continue\n';
+              body += `git push --force-with-lease origin ${{ inputs.pr_branch }}\n`;
+              body += '```\n';
+            } else {
+              body += '❌ **Rebase failed**\n\n';
+              body += 'The rebase operation failed unexpectedly. Please check the workflow logs for details.\n';
+            }
+            
+            // Try to find the PR number
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${{ inputs.pr_branch }}`,
+              state: 'open'
+            });
+            
+            if (prs.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prs.data[0].number,
+                body: body
+              });
+            }
